@@ -16,6 +16,8 @@ import json
 from decimal import Decimal
 import pandas as pd
 import numpy as np
+import os
+import json
 
 from requests.exceptions import SSLError
 from howtrader.trader.constant import (
@@ -75,7 +77,8 @@ ORDERTYPE_VT2BINANCES: Dict[OrderType, Tuple[str, str]] = {
     OrderType.TAKER: ("MARKET", "GTC"),
     OrderType.FAK: ("LIMIT", "IOC"),
     OrderType.FOK: ("LIMIT", "FOK"),
-    OrderType.MAKER: ("LIMIT", "GTX")
+    OrderType.MAKER: ("LIMIT", "GTX"),
+    OrderType.STOP: ("STOP", "GTC")
 }
 ORDERTYPE_BINANCES2VT: Dict[Tuple[str, str], OrderType] = {v: k for k, v in ORDERTYPE_VT2BINANCES.items()}
 
@@ -506,7 +509,6 @@ class BinanceUsdtRestApi(RestClient):
             data: dict = resp.json()
             return data
  
-    
     def query_funding_rate(self) -> None:
         data = {
             "security": Security.NONE
@@ -553,6 +555,20 @@ class BinanceUsdtRestApi(RestClient):
 
         if req.type == OrderType.TAKER:
             params["type"] = "MARKET"
+        elif req.type == OrderType.STOP:
+            order_type, time_condition = ORDERTYPE_VT2BINANCES[req.type]
+            params["type"] = order_type
+            params["timeInForce"] = time_condition
+            params["price"] = req.price
+            
+            order_params = json.loads(os.environ[req.vt_symbol])
+            
+            if req.direction == Direction.LONG:
+                params['stopPrice'] =  Decimal(str(order_params['stop_buy_price']))
+            elif req.direction == Direction.SHORT:
+                params['stopPrice'] =  Decimal(str(order_params['stop_sell_price']))
+
+            
         else:
             order_type, time_condition = ORDERTYPE_VT2BINANCES[req.type]
             params["type"] = order_type
@@ -826,6 +842,7 @@ class BinanceUsdtRestApi(RestClient):
                 net_position=True,
                 history_data=True,
                 gateway_name=self.gateway_name,
+                stop_supported=True
             )
             self.gateway.on_contract(contract)
 
@@ -1109,7 +1126,7 @@ class BinanceUsdtRestApi(RestClient):
                 history.extend(buf)
                 msg: str = f"query historical kline data successfully, " \
                            f"{req.symbol} - {req.interval.value}，{begin} - {end}"
-                self.gateway.write_log(msg)
+                # self.gateway.write_log(msg)
 
                 # if the data len is less than limit, break the while loop
                 if len(data) < limit:
