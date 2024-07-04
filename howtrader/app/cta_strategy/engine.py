@@ -1117,12 +1117,6 @@ class CtaEngine(BaseEngine):
         """
         contract: Optional[ContractData] = self.main_engine.get_contract(vt_symbol)
         if contract:
-
-            req: UnsubcribeRequest = UnsubcribeRequest(
-                symbol=contract.symbol, exchange=contract.exchange
-            )
-            self.main_engine.unsubscribe(req, contract.gateway_name)
-
             # Remove vt_symbol from strategy map.
             strategies: list = self.symbol_strategy_map[vt_symbol]
             if strategy in strategies:
@@ -1132,6 +1126,13 @@ class CtaEngine(BaseEngine):
                     f"strategy {strategy.strategy_name} already unsubscribed {vt_symbol}",
                     strategy,
                 )
+
+            if not len(strategies):
+                req: UnsubcribeRequest = UnsubcribeRequest(
+                    symbol=contract.symbol, exchange=contract.exchange
+                )
+                self.main_engine.unsubscribe(req, contract.gateway_name)
+
         else:
             self.write_log(
                 f"failed to unsubscribe market data, symbol not found: {vt_symbol}",

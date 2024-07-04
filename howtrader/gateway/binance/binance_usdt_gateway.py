@@ -1306,9 +1306,6 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
             return
 
         self.reqid += 1
-
-        self.ticks.pop(req.symbol.lower())
-
         channels = [f"{req.symbol.lower()}@ticker", f"{req.symbol.lower()}@depth5"]
 
         req: dict = {"method": "UNSUBSCRIBE", "params": channels, "id": self.reqid}
