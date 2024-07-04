@@ -7,9 +7,22 @@ from datetime import datetime
 from logging import INFO
 from decimal import Decimal
 import pandas as pd
-from .constant import Direction, Exchange, Interval, Offset, Status, Product, OptionType, OrderType
+from .constant import (
+    Direction,
+    Exchange,
+    Interval,
+    Offset,
+    Status,
+    Product,
+    OptionType,
+    OrderType,
+)
 
-ACTIVE_STATUSES = {Status.SUBMITTING, Status.NOTTRADED, Status.PARTTRADED}  # define the active status set.
+ACTIVE_STATUSES = {
+    Status.SUBMITTING,
+    Status.NOTTRADED,
+    Status.PARTTRADED,
+}  # define the active status set.
 
 
 @dataclass
@@ -152,7 +165,9 @@ class OrderData(BaseData):
         Create OrderQueryRequest for updating the order when the order hasn't updated for a long time.
         you can config the update interval in vt_setting.json file, config the value "update_interval"
         """
-        return OrderQueryRequest(orderid=self.orderid, symbol=self.symbol, exchange=self.exchange)
+        return OrderQueryRequest(
+            orderid=self.orderid, symbol=self.symbol, exchange=self.exchange
+        )
 
 
 @dataclass
@@ -178,6 +193,7 @@ class TradeData(BaseData):
         self.vt_symbol: str = f"{self.symbol}.{self.exchange.value}"
         self.vt_orderid: str = f"{self.gateway_name}.{self.orderid}"
         self.vt_tradeid: str = f"{self.gateway_name}.{self.tradeid}"
+
 
 @dataclass
 class PositionData(BaseData):
@@ -247,20 +263,26 @@ class ContractData(BaseData):
     product: Product
     size: Decimal
     pricetick: Decimal
-    min_notional: Decimal = Decimal("1")  # order's value, price * amount >= min_notional
-    min_size: Decimal = Decimal("1")  # place minimum order size, 最小的下单数量，okx使用.
-    min_volume: Decimal = Decimal("1")  # minimum trading volume of the contract, 下单精度要求.
-    stop_supported: bool = False    # whether server supports stop order
-    net_position: bool = False      # whether gateway uses net position volume
-    history_data: bool = False      # whether gateway provides bar history data
+    min_notional: Decimal = Decimal(
+        "1"
+    )  # order's value, price * amount >= min_notional
+    min_size: Decimal = Decimal(
+        "1"
+    )  # place minimum order size, 最小的下单数量，okx使用.
+    min_volume: Decimal = Decimal(
+        "1"
+    )  # minimum trading volume of the contract, 下单精度要求.
+    stop_supported: bool = False  # whether server supports stop order
+    net_position: bool = False  # whether gateway uses net position volume
+    history_data: bool = False  # whether gateway provides bar history data
 
     option_strike: float = 0
-    option_underlying: str = ""     # vt_symbol of underlying contract
+    option_underlying: str = ""  # vt_symbol of underlying contract
     option_type: OptionType = None
     option_listed: datetime = None
     option_expiry: datetime = None
     option_portfolio: str = ""
-    option_index: str = ""          # for identifying options with same strike price
+    option_index: str = ""  # for identifying options with same strike price
 
     def __post_init__(self) -> None:
         """"""
@@ -272,6 +294,7 @@ class FundingRateData(BaseData):
     """
     FundingRate/PremiumIndex
     """
+
     symbol: str
     exchange: Exchange
     last_funding_rate_str: str
@@ -291,11 +314,13 @@ class OriginalKlineData(BaseData):
     """
     exchange kline data
     """
+
     symbol: str
     exchange: Exchange
     interval: Interval
     kline_df: pd.DataFrame
     klines: list
+
     def __post_init__(self) -> None:
         """"""
         self.vt_symbol: str = f"{self.symbol}.{self.exchange.value}"
@@ -347,6 +372,20 @@ class QuoteData(BaseData):
 class SubscribeRequest:
     """
     Request sending to specific gateway for subscribing tick data update.
+    """
+
+    symbol: str
+    exchange: Exchange
+
+    def __post_init__(self) -> None:
+        """"""
+        self.vt_symbol: str = f"{self.symbol}.{self.exchange.value}"
+
+
+@dataclass
+class UnsubcribeRequest:
+    """
+    Request sending to specific gateway for unsubscribing tick data update.
     """
 
     symbol: str
@@ -415,6 +454,7 @@ class OrderQueryRequest:
     """
     Query the existing order status
     """
+
     orderid: str
     symbol: str
     exchange: Exchange
@@ -432,7 +472,7 @@ class HistoryRequest:
 
     symbol: str
     exchange: Exchange
-    start: datetime
+    start: datetime = None
     end: datetime = None
     interval: Interval = None
     limit: int = 1000
@@ -510,12 +550,16 @@ class GridPositionCalculator(object):
                     self.avg_price = trade.price
 
                 elif previous_pos > 0:
-                    self.avg_price = (previous_pos * previous_avg + trade.volume * trade.price) / abs(self.pos)
+                    self.avg_price = (
+                        previous_pos * previous_avg + trade.volume * trade.price
+                    ) / abs(self.pos)
 
                 elif previous_pos < 0 and self.pos < 0:
-                    self.avg_price = (previous_avg * abs(self.pos) - (
-                            trade.price - previous_avg) * trade.volume - trade.volume * self.grid_step) / abs(
-                        self.pos)
+                    self.avg_price = (
+                        previous_avg * abs(self.pos)
+                        - (trade.price - previous_avg) * trade.volume
+                        - trade.volume * self.grid_step
+                    ) / abs(self.pos)
 
                 elif previous_pos < 0 < self.pos:
                     self.avg_price = trade.price
@@ -531,12 +575,16 @@ class GridPositionCalculator(object):
                     self.avg_price = trade.price
 
                 elif previous_pos < 0:
-                    self.avg_price = (abs(previous_pos) * previous_avg + trade.volume * trade.price) / abs(self.pos)
+                    self.avg_price = (
+                        abs(previous_pos) * previous_avg + trade.volume * trade.price
+                    ) / abs(self.pos)
 
                 elif previous_pos > 0 and self.pos > 0:
-                    self.avg_price = (previous_avg * self.pos - (
-                            trade.price - previous_avg) * trade.volume + trade.volume * self.grid_step) / abs(
-                        self.pos)
+                    self.avg_price = (
+                        previous_avg * self.pos
+                        - (trade.price - previous_avg) * trade.volume
+                        + trade.volume * self.grid_step
+                    ) / abs(self.pos)
 
                 elif previous_pos > 0 > self.pos:
                     self.avg_price = trade.price

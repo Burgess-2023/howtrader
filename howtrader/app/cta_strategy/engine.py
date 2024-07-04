@@ -19,6 +19,7 @@ from howtrader.trader.object import (
     OrderRequest,
     OrderQueryRequest,
     SubscribeRequest,
+    UnsubcribeRequest,
     HistoryRequest,
     CancelRequest,
     LogData,
@@ -29,17 +30,18 @@ from howtrader.trader.object import (
     ContractData,
     PositionData,
     AccountData,
-    OriginalKlineData
+    OriginalKlineData,
 )
 from howtrader.trader.event import (
     EVENT_TICK,
     EVENT_ORDER,
     EVENT_TRADE,
     EVENT_POSITION,
-    EVENT_ORIGINAL_KLINE
+    EVENT_ORIGINAL_KLINE,
 )
+
 EVENT_RPC_SIGNAL = "eRpcSignal"
-EVENT_RPC_PUBLISH = 'eRpcPublish'
+EVENT_RPC_PUBLISH = "eRpcPublish"
 
 from howtrader.trader.constant import (
     Direction,
@@ -47,7 +49,7 @@ from howtrader.trader.constant import (
     Interval,
     Exchange,
     Offset,
-    Status
+    Status,
 )
 from howtrader.trader.utility import load_json, save_json, extract_vt_symbol, round_to
 from howtrader.trader.converter import OffsetConverter
@@ -61,7 +63,7 @@ from .base import (
     EngineType,
     StopOrder,
     StopOrderStatus,
-    STOPORDER_PREFIX
+    STOPORDER_PREFIX,
 )
 from .template import CtaTemplate
 
@@ -73,7 +75,7 @@ STOP_STATUS_MAP: Dict[Status, StopOrderStatus] = {
     Status.PARTTRADED: StopOrderStatus.TRIGGERED,
     Status.ALLTRADED: StopOrderStatus.TRIGGERED,
     Status.CANCELLED: StopOrderStatus.CANCELLED,
-    Status.REJECTED: StopOrderStatus.CANCELLED
+    Status.REJECTED: StopOrderStatus.CANCELLED,
 }
 
 LOCAL_TZ = get_localzone()
@@ -89,23 +91,24 @@ class CtaEngine(BaseEngine):
 
     def __init__(self, main_engine: MainEngine, event_engine: EventEngine) -> None:
         """"""
-        super(CtaEngine, self).__init__(
-            main_engine, event_engine, APP_NAME)
+        super(CtaEngine, self).__init__(main_engine, event_engine, APP_NAME)
 
         self.strategy_setting: dict = {}  # strategy_name: dict
-        self.strategy_data: dict = {}     # strategy_name: dict
+        self.strategy_data: dict = {}  # strategy_name: dict
 
-        self.classes: dict = {}           # class_name: stategy_class
-        self.strategies: dict = {}        # strategy_name: strategy
+        self.classes: dict = {}  # class_name: stategy_class
+        self.strategies: dict = {}  # strategy_name: strategy
 
         self.symbol_strategy_map: defaultdict = defaultdict(
-            list)                   # vt_symbol: strategy list
+            list
+        )  # vt_symbol: strategy list
         self.orderid_strategy_map: Dict[str, CtaTemplate] = {}  # vt_orderid: strategy
         self.strategy_orderid_map: defaultdict = defaultdict(
-            set)                    # strategy_name: orderid list
+            set
+        )  # strategy_name: orderid list
 
-        self.stop_order_count: int = 0   # for generating stop_orderid
-        self.stop_orders: Dict[str, StopOrder] = {}       # stop_orderid: stop_order
+        self.stop_order_count: int = 0  # for generating stop_orderid
+        self.stop_orders: Dict[str, StopOrder] = {}  # stop_orderid: stop_order
 
         self.init_executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=1)
 
@@ -137,25 +140,25 @@ class CtaEngine(BaseEngine):
         self.event_engine.register(EVENT_TRADE, self.process_trade_event)
         self.event_engine.register(EVENT_POSITION, self.process_position_event)
         self.event_engine.register(EVENT_RPC_SIGNAL, self.process_rpc_signal)
-        #self.event_engine.register(EVENT_ORIGINAL_KLINE, self.process_kline_event)
+        # self.event_engine.register(EVENT_ORIGINAL_KLINE, self.process_kline_event)
 
     def process_contract_event(self, event: Event) -> None:
         """"""
         contract: ContractData = event.data
         strategies: list = self.symbol_strategy_map[contract.vt_symbol]
-        
+
     def process_rpc_signal(self, event: Event) -> None:
-        
+
         rpc_signal = event.data
 
         strategies: list = list(self.strategies.values())
         if not strategies:
             return
-        
+
         for strategy in strategies:
             if strategy.inited:
                 self.call_strategy_func(strategy, strategy.on_rpc_signal, rpc_signal)
-                
+
     def process_tick_event(self, event: Event) -> None:
         """"""
         tick: TickData = event.data
@@ -176,7 +179,9 @@ class CtaEngine(BaseEngine):
 
         self.offset_converter.update_order(order)
 
-        strategy: Optional[CtaTemplate] = self.orderid_strategy_map.get(order.vt_orderid, None)
+        strategy: Optional[CtaTemplate] = self.orderid_strategy_map.get(
+            order.vt_orderid, None
+        )
         if not strategy:
             return
 
@@ -216,7 +221,9 @@ class CtaEngine(BaseEngine):
 
         self.offset_converter.update_trade(trade)
 
-        strategy: Optional[CtaTemplate] = self.orderid_strategy_map.get(trade.vt_orderid, None)
+        strategy: Optional[CtaTemplate] = self.orderid_strategy_map.get(
+            trade.vt_orderid, None
+        )
         if not strategy:
             return None
         # Update strategy pos before calling on_trade method
@@ -241,15 +248,15 @@ class CtaEngine(BaseEngine):
 
     def process_kline_event(self, event: Event) -> None:
         kline: OriginalKlineData = event.data
-        
+
         strategies: list = self.symbol_strategy_map[kline.vt_symbol]
         if not strategies:
             return
-        
+
         for strategy in strategies:
             if strategy.inited:
                 self.call_strategy_func(strategy, strategy.on_kline, kline)
-                     
+
     def check_stop_order(self, tick: TickData) -> None:
         """"""
         for stop_order in list(self.stop_orders.values()):
@@ -257,10 +264,12 @@ class CtaEngine(BaseEngine):
                 continue
 
             long_triggered = (
-                stop_order.direction == Direction.LONG and tick.last_price >= stop_order.price
+                stop_order.direction == Direction.LONG
+                and tick.last_price >= stop_order.price
             )
             short_triggered = (
-                stop_order.direction == Direction.SHORT and tick.last_price <= stop_order.price
+                stop_order.direction == Direction.SHORT
+                and tick.last_price <= stop_order.price
             )
 
             if long_triggered or short_triggered:
@@ -280,7 +289,9 @@ class CtaEngine(BaseEngine):
                     else:
                         price = tick.bid_price_5
 
-                contract: Optional[ContractData] = self.main_engine.get_contract(stop_order.vt_symbol)
+                contract: Optional[ContractData] = self.main_engine.get_contract(
+                    stop_order.vt_symbol
+                )
 
                 vt_orderids: list = self.send_limit_order(
                     strategy,
@@ -290,7 +301,7 @@ class CtaEngine(BaseEngine):
                     Decimal(str(price)),
                     stop_order.volume,
                     stop_order.lock,
-                    stop_order.net
+                    stop_order.net,
                 )
 
                 # Update stop order status if placed successfully
@@ -298,7 +309,9 @@ class CtaEngine(BaseEngine):
                     # Remove from relation map.
                     self.stop_orders.pop(stop_order.stop_orderid)
 
-                    strategy_vt_orderids: list = self.strategy_orderid_map[strategy.strategy_name]
+                    strategy_vt_orderids: list = self.strategy_orderid_map[
+                        strategy.strategy_name
+                    ]
                     if stop_order.stop_orderid in strategy_vt_orderids:
                         strategy_vt_orderids.remove(stop_order.stop_orderid)
 
@@ -321,12 +334,13 @@ class CtaEngine(BaseEngine):
         volume: Decimal,
         type: OrderType,
         lock: bool,
-        net: bool
+        net: bool,
     ) -> list:
         """
         Send a new order to server.
         """
         # Create request and send order.
+
         original_req: OrderRequest = OrderRequest(
             symbol=contract.symbol,
             exchange=contract.exchange,
@@ -335,11 +349,13 @@ class CtaEngine(BaseEngine):
             type=type,
             price=price,
             volume=volume,
-            reference=f"{APP_NAME}_{strategy.strategy_name}"
+            reference=f"{APP_NAME}_{strategy.strategy_name}",
         )
 
         # Convert with offset converter
-        req_list: List[OrderRequest] = self.offset_converter.convert_order_request(original_req, lock, net)
+        req_list: List[OrderRequest] = self.offset_converter.convert_order_request(
+            original_req, lock, net
+        )
 
         # Send Orders
         vt_orderids: list = []
@@ -371,22 +387,14 @@ class CtaEngine(BaseEngine):
         volume: Decimal,
         lock: bool,
         net: bool,
-        maker: bool = False
+        maker: bool = False,
     ) -> list:
         """
         Send a limit order to server.
         """
         order_type = OrderType.MAKER if maker else OrderType.LIMIT
         return self.send_server_order(
-            strategy,
-            contract,
-            direction,
-            offset,
-            price,
-            volume,
-            order_type,
-            lock,
-            net
+            strategy, contract, direction, offset, price, volume, order_type, lock, net
         )
 
     def send_server_stop_order(
@@ -398,7 +406,7 @@ class CtaEngine(BaseEngine):
         price: Decimal,
         volume: Decimal,
         lock: bool,
-        net: bool
+        net: bool,
     ) -> list:
         """
         Send a stop order to server.
@@ -415,7 +423,7 @@ class CtaEngine(BaseEngine):
             volume,
             OrderType.STOP,
             lock,
-            net
+            net,
         )
 
     def send_local_stop_order(
@@ -426,7 +434,7 @@ class CtaEngine(BaseEngine):
         price: Decimal,
         volume: Decimal,
         lock: bool,
-        net: bool
+        net: bool,
     ) -> list:
         """
         Create a new local stop order.
@@ -444,7 +452,7 @@ class CtaEngine(BaseEngine):
             strategy_name=strategy.strategy_name,
             datetime=datetime.now(LOCAL_TZ),
             lock=lock,
-            net=net
+            net=net,
         )
 
         self.stop_orders[stop_orderid] = stop_order
@@ -463,7 +471,9 @@ class CtaEngine(BaseEngine):
         """
         order: Optional[OrderData] = self.main_engine.get_active_order(vt_orderid)
         if not order:
-            self.write_log(f"cancel order failed, order is not active: {vt_orderid}", strategy)
+            self.write_log(
+                f"cancel order failed, order is not active: {vt_orderid}", strategy
+            )
             return None
 
         req: CancelRequest = order.create_cancel_request()
@@ -502,13 +512,14 @@ class CtaEngine(BaseEngine):
         stop: bool,
         lock: bool,
         net: bool,
-        maker: bool = False
+        maker: bool = False,
     ) -> list:
-        """
-        """
+        """ """
         contract: Optional[ContractData] = self.main_engine.get_contract(vt_symbol)
         if not contract:
-            self.write_log(f"send order failed, didn't find symbol: {vt_symbol}", strategy)
+            self.write_log(
+                f"send order failed, didn't find symbol: {vt_symbol}", strategy
+            )
             return []
 
         # Round order price and volume to nearest incremental value
@@ -516,7 +527,9 @@ class CtaEngine(BaseEngine):
         volume: Decimal = round_to(volume, contract.min_volume)
 
         if abs(volume) < contract.min_volume:
-            self.write_log(f"send order failed, order volume: {volume}, required min_volume: {contract.min_volume}")
+            self.write_log(
+                f"send order failed, order volume: {volume}, required min_volume: {contract.min_volume}"
+            )
             return []
 
         if stop:
@@ -534,8 +547,7 @@ class CtaEngine(BaseEngine):
             )
 
     def cancel_order(self, strategy: CtaTemplate, vt_orderid: str) -> None:
-        """
-        """
+        """ """
         if vt_orderid.startswith(STOPORDER_PREFIX):
             self.cancel_local_stop_order(strategy, vt_orderid)
         else:
@@ -560,7 +572,9 @@ class CtaEngine(BaseEngine):
         """
         Return contract pricetick data.
         """
-        contract: Optional[ContractData] = self.main_engine.get_contract(strategy.vt_symbol)
+        contract: Optional[ContractData] = self.main_engine.get_contract(
+            strategy.vt_symbol
+        )
 
         if contract:
             return contract.pricetick
@@ -583,22 +597,22 @@ class CtaEngine(BaseEngine):
          eg. BINANCE_SPOT.USDT(spot usdt) BINANCE_USDT.USDT (usdt futures usdt) BINANCE_INVERSE.USDT
         :return: AccountData data or None
         """
-        return self.main_engine.get_account(vt_accountid)    
-    
+        return self.main_engine.get_account(vt_accountid)
+
     def get_all_contract(self, exchange: Exchange) -> List[ContractData]:
-        contracts =  self.main_engine.get_all_contracts()
+        contracts = self.main_engine.get_all_contracts()
         return [contract for contract in contracts if contract.exchange == exchange]
-    
+
     def get_priceticker(self, gateway_name: str):
         return self.main_engine.query_priceticker(gateway_name)
-        
+
     def load_bar(
         self,
         vt_symbol: str,
         days: int,
         interval: Interval,
         use_database: bool,
-        callback: Callable[[BarData], None] = None
+        callback: Callable[[BarData], None] = None,
     ) -> List[BarData]:
         """"""
         symbol, exchange = extract_vt_symbol(vt_symbol)
@@ -616,9 +630,11 @@ class CtaEngine(BaseEngine):
                     exchange=exchange,
                     interval=interval,
                     start=start,
-                    end=end
+                    end=end,
                 )
-                bars: List[BarData] = self.main_engine.query_history(req, contract.gateway_name)
+                bars: List[BarData] = self.main_engine.query_history(
+                    req, contract.gateway_name
+                )
                 if bars:
                     return bars
             # Try to query bars from datafeed, if not found, load from database.
@@ -626,32 +642,33 @@ class CtaEngine(BaseEngine):
             #     bars: List[BarData] = self.query_bar_from_datafeed(symbol, exchange, interval, start, end)
 
         bars: List[BarData] = self.database.load_bar_data(
-                symbol=symbol,
-                exchange=exchange,
-                interval=interval,
-                start=start,
-                end=end,
-            )
+            symbol=symbol,
+            exchange=exchange,
+            interval=interval,
+            start=start,
+            end=end,
+        )
         if bars:
             return bars
 
         return []
 
-    def query_latest_kline(self, vt_symbol: str, interval: Interval, limit: int = 1000) -> None:
+    def query_latest_kline(
+        self, vt_symbol: str, interval: Interval, limit: int = 1000
+    ) -> None:
         symbol, exchange = extract_vt_symbol(vt_symbol)
         contract: Optional[ContractData] = self.main_engine.get_contract(vt_symbol)
         if not contract:
-            self.write_log(f"contract is not found, pls check your vt_symbol: {vt_symbol}")
+            self.write_log(
+                f"contract is not found, pls check your vt_symbol: {vt_symbol}"
+            )
             return
         if not contract.history_data:
             self.write_log(f"the contract is not support querying kline data")
             return
 
         req: HistoryRequest = HistoryRequest(
-                symbol=symbol,
-                exchange=exchange,
-                interval=interval,
-                limit=limit
+            symbol=symbol, exchange=exchange, interval=interval, limit=limit
         )
 
         self.main_engine.query_latest_kline(req, contract.gateway_name)
@@ -691,7 +708,9 @@ class CtaEngine(BaseEngine):
             strategy.trading = False
             strategy.inited = False
 
-            msg: str = f"raise exception and strategy was stopped: \n{traceback.format_exc()}"
+            msg: str = (
+                f"raise exception and strategy was stopped: \n{traceback.format_exc()}"
+            )
             self.write_log(msg, strategy)
 
     def add_strategy(
@@ -701,16 +720,22 @@ class CtaEngine(BaseEngine):
         Add a new strategy.
         """
         if strategy_name in self.strategies:
-            self.write_log(f"create strategy failed，strategy {strategy_name} already existed")
+            self.write_log(
+                f"create strategy failed，strategy {strategy_name} already existed"
+            )
             return
 
         strategy_class: Optional[Type[CtaTemplate]] = self.classes.get(class_name, None)
         if not strategy_class:
-            self.write_log(f"create strategy failed，strategy class {class_name} not found")
+            self.write_log(
+                f"create strategy failed，strategy class {class_name} not found"
+            )
             return
 
         if "." not in vt_symbol:
-            self.write_log("create strategy failed, vt_symbol doesn't contain exchange name, correct format like BTCUSDT.BINANCE")
+            self.write_log(
+                "create strategy failed, vt_symbol doesn't contain exchange name, correct format like BTCUSDT.BINANCE"
+            )
             return
 
         _, exchange_str = vt_symbol.split(".")
@@ -748,14 +773,13 @@ class CtaEngine(BaseEngine):
 
         self.write_log(f"start initializing {strategy_name}")
 
-
         # Restore strategy data(variables)
         data: Optional[dict] = self.strategy_data.get(strategy_name, None)
         if data:
             for name in strategy.variables:
                 value = data.get(name, None)
                 if value is not None:
-                    if name == 'pos':
+                    if name == "pos":
                         setattr(strategy, name, Decimal(str(value)))
                     else:
                         setattr(strategy, name, value)
@@ -764,13 +788,19 @@ class CtaEngine(BaseEngine):
         self.call_strategy_func(strategy, strategy.on_init)
 
         # Subscribe market data
-        contract: Optional[ContractData] = self.main_engine.get_contract(strategy.vt_symbol)
+        contract: Optional[ContractData] = self.main_engine.get_contract(
+            strategy.vt_symbol
+        )
         if contract:
             req: SubscribeRequest = SubscribeRequest(
-                symbol=contract.symbol, exchange=contract.exchange)
+                symbol=contract.symbol, exchange=contract.exchange
+            )
             self.main_engine.subscribe(req, contract.gateway_name)
         else:
-            self.write_log(f"failed to subscribe market data, symbol not found: {strategy.vt_symbol}", strategy)
+            self.write_log(
+                f"failed to subscribe market data, symbol not found: {strategy.vt_symbol}",
+                strategy,
+            )
 
         # Put event to update init completed status.
         strategy.inited = True
@@ -783,7 +813,9 @@ class CtaEngine(BaseEngine):
         """
         strategy: CtaTemplate = self.strategies[strategy_name]
         if not strategy.inited:
-            self.write_log(f"strategy {strategy.strategy_name} failed to start，pls initialize strategy first")
+            self.write_log(
+                f"strategy {strategy.strategy_name} failed to start，pls initialize strategy first"
+            )
             return None
 
         if strategy.trading:
@@ -834,7 +866,9 @@ class CtaEngine(BaseEngine):
         """
         strategy: CtaTemplate = self.strategies[strategy_name]
         if strategy.trading:
-            self.write_log(f"strategy {strategy.strategy_name} failed to remove，pls stop strategy first.")
+            self.write_log(
+                f"strategy {strategy.strategy_name} failed to remove，pls stop strategy first."
+            )
             return False
 
         # Remove setting
@@ -864,12 +898,16 @@ class CtaEngine(BaseEngine):
         Load strategy class from source code.
         """
         path1: Path = Path(__file__).parent.joinpath("strategies")
-        self.load_strategy_class_from_folder(path1, "howtrader.app.cta_strategy.strategies")
+        self.load_strategy_class_from_folder(
+            path1, "howtrader.app.cta_strategy.strategies"
+        )
 
         path2: Path = Path.cwd().joinpath("strategies")
         self.load_strategy_class_from_folder(path2, "strategies")
 
-    def load_strategy_class_from_folder(self, path: Path, module_name: str = "") -> None:
+    def load_strategy_class_from_folder(
+        self, path: Path, module_name: str = ""
+    ) -> None:
         """
         Load strategy class from certain folder.
         """
@@ -892,10 +930,16 @@ class CtaEngine(BaseEngine):
 
             for name in dir(module):
                 value = getattr(module, name)
-                if (isinstance(value, type) and issubclass(value, CtaTemplate) and value is not CtaTemplate):
+                if (
+                    isinstance(value, type)
+                    and issubclass(value, CtaTemplate)
+                    and value is not CtaTemplate
+                ):
                     self.classes[value.__name__] = value
         except:  # noqa
-            msg: str = f"strategy module {module_name} failed to load，raise exception: \n{traceback.format_exc()}"
+            msg: str = (
+                f"strategy module {module_name} failed to load，raise exception: \n{traceback.format_exc()}"
+            )
             self.write_log(msg)
 
     def load_strategy_data(self) -> None:
@@ -909,7 +953,7 @@ class CtaEngine(BaseEngine):
         Sync strategy data into json file.
         """
         data: dict = strategy.get_variables()
-        data.pop("inited")      # Strategy status (inited, trading) should not be synced.
+        data.pop("inited")  # Strategy status (inited, trading) should not be synced.
         data.pop("trading")
         self.sync_strategy_data_lock.acquire()
         self.strategy_data[strategy.strategy_name] = data
@@ -942,22 +986,19 @@ class CtaEngine(BaseEngine):
         return strategy.get_parameters()
 
     def init_all_strategies(self) -> Dict[str, Future]:
-        """
-        """
+        """ """
         futures: Dict[str, Future] = {}
         for strategy_name in self.strategies.keys():
             futures[strategy_name] = self.init_strategy(strategy_name)
         return futures
 
     def start_all_strategies(self) -> None:
-        """
-        """
+        """ """
         for strategy_name in self.strategies.keys():
             self.start_strategy(strategy_name)
 
     def stop_all_strategies(self) -> None:
-        """
-        """
+        """ """
         for strategy_name in self.strategies.keys():
             self.stop_strategy(strategy_name)
 
@@ -972,7 +1013,7 @@ class CtaEngine(BaseEngine):
                 strategy_config["class_name"],
                 strategy_name,
                 strategy_config["vt_symbol"],
-                strategy_config["setting"]
+                strategy_config["setting"],
             )
 
     def update_strategy_setting(self, strategy_name: str, setting: dict) -> None:
@@ -1031,7 +1072,7 @@ class CtaEngine(BaseEngine):
         event: Event = Event(type=EVENT_CTA_LOG, data=log)
         self.event_engine.put(event)
 
-    def send_email(self, msg: str, strategy: CtaTemplate = None) -> None:     
+    def send_email(self, msg: str, strategy: CtaTemplate = None) -> None:
         """
         Send email to default receiver.
         """
@@ -1041,7 +1082,7 @@ class CtaEngine(BaseEngine):
             subject: str = "CTA Engine"
 
         self.main_engine.send_email(subject, msg)
-        
+
     def subscribe(self, strategy: CtaTemplate, vt_symbol: str) -> None:
         """
         Subscribe market data update
@@ -1049,38 +1090,50 @@ class CtaEngine(BaseEngine):
         contract: Optional[ContractData] = self.main_engine.get_contract(vt_symbol)
         if contract:
             req: SubscribeRequest = SubscribeRequest(
-                symbol=contract.symbol, exchange=contract.exchange)
+                symbol=contract.symbol, exchange=contract.exchange
+            )
             self.main_engine.subscribe(req, contract.gateway_name)
-            
+
             # Add vt_symbol to strategy map.
             strategies: list = self.symbol_strategy_map[vt_symbol]
             if strategy not in strategies:
                 strategies.append(strategy)
             else:
-                self.write_log(f"strategy {strategy.strategy_name} already subscribed {vt_symbol}", strategy)
+                self.write_log(
+                    f"strategy {strategy.strategy_name} already subscribed {vt_symbol}",
+                    strategy,
+                )
         else:
-            self.write_log(f"failed to subscribe market data, symbol not found: {vt_symbol}", strategy)
+            self.write_log(
+                f"failed to subscribe market data, symbol not found: {vt_symbol}",
+                strategy,
+            )
             return False
         return True
-    
+
     def unsubscribe(self, strategy: CtaTemplate, vt_symbol: str) -> None:
         """
         Unsubscribe market data update
         """
         contract: Optional[ContractData] = self.main_engine.get_contract(vt_symbol)
         if contract:
-            """
-            req: SubscribeRequest = SubscribeRequest(
-                symbol=contract.symbol, exchange=contract.exchange)
+
+            req: UnsubcribeRequest = UnsubcribeRequest(
+                symbol=contract.symbol, exchange=contract.exchange
+            )
             self.main_engine.unsubscribe(req, contract.gateway_name)
-            """
-            
+
             # Remove vt_symbol from strategy map.
             strategies: list = self.symbol_strategy_map[vt_symbol]
             if strategy in strategies:
                 strategies.remove(strategy)
             else:
-                self.write_log(f"strategy {strategy.strategy_name} already unsubscribed {vt_symbol}", strategy)
+                self.write_log(
+                    f"strategy {strategy.strategy_name} already unsubscribed {vt_symbol}",
+                    strategy,
+                )
         else:
-            self.write_log(f"failed to unsubscribe market data, symbol not found: {vt_symbol}", strategy)
-      
+            self.write_log(
+                f"failed to unsubscribe market data, symbol not found: {vt_symbol}",
+                strategy,
+            )

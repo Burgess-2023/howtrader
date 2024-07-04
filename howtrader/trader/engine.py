@@ -21,7 +21,7 @@ from .event import (
     EVENT_CONTRACT,
     EVENT_LOG,
     EVENT_QUOTE,
-    EVENT_TIMER
+    EVENT_TIMER,
 )
 from .gateway import BaseGateway
 from .object import (
@@ -32,6 +32,7 @@ from .object import (
     QuoteData,
     QuoteRequest,
     SubscribeRequest,
+    UnsubcribeRequest,
     HistoryRequest,
     OrderData,
     BarData,
@@ -40,7 +41,7 @@ from .object import (
     PositionData,
     AccountData,
     ContractData,
-    Exchange
+    Exchange,
 )
 from .setting import SETTINGS
 from .utility import get_folder_path, TRADER_DIR
@@ -75,7 +76,9 @@ class MainEngine:
         self.engines[engine.engine_name] = engine
         return engine
 
-    def add_gateway(self, gateway_class: Type[BaseGateway], gateway_name: str = "") -> BaseGateway:
+    def add_gateway(
+        self, gateway_class: Type[BaseGateway], gateway_name: str = ""
+    ) -> BaseGateway:
         """
         Add gateway.
         """
@@ -180,6 +183,14 @@ class MainEngine:
         if gateway:
             gateway.subscribe(req)
 
+    def unsubscribe(self, req: UnsubcribeRequest, gateway_name: str) -> None:
+        """
+        Unsubscribe tick data update of a specific gateway.
+        """
+        gateway: BaseGateway = self.get_gateway(gateway_name)
+        if gateway:
+            gateway.unsubscribe(req)
+
     def send_order(self, req: OrderRequest, gateway_name: str) -> str:
         """
         Send new order request to a specific gateway.
@@ -200,7 +211,7 @@ class MainEngine:
 
     def query_order(self, req: OrderQueryRequest, gateway_name: str) -> None:
         gateway = self.get_gateway(gateway_name)
-        if gateway and hasattr(gateway, 'query_order'):
+        if gateway and hasattr(gateway, "query_order"):
             gateway.query_order(req)
 
     def send_quote(self, req: QuoteRequest, gateway_name: str) -> str:
@@ -215,9 +226,9 @@ class MainEngine:
 
     def query_funding_rate(self, gateway_name: str) -> None:
         gateway_name = self.get_gateway(gateway_name)
-        if gateway_name and hasattr(gateway_name, 'query_funding_rate'):
+        if gateway_name and hasattr(gateway_name, "query_funding_rate"):
             gateway_name.query_funding_rate()
-    
+
     def query_contract(self, gateway_name: str) -> None:
         """
         Query contract information from a specific gateway.
@@ -234,7 +245,9 @@ class MainEngine:
         if gateway:
             gateway.cancel_quote(req)
 
-    def query_history(self, req: HistoryRequest, gateway_name: str) -> Optional[List[BarData]]:
+    def query_history(
+        self, req: HistoryRequest, gateway_name: str
+    ) -> Optional[List[BarData]]:
         """
         Query bar history data from a specific gateway.
         """
@@ -243,7 +256,7 @@ class MainEngine:
             return gateway.query_history(req)
         else:
             return None
-    
+
     def query_priceticker(self, gateway: str):
         """
         Query priceticker data from a specific gateway.
@@ -496,22 +509,30 @@ class OmsEngine(BaseEngine):
         self.position_update_interval += 1
         self.account_update_interval += 1
 
-        update_interval = SETTINGS.get('order_update_interval', 300)
+        update_interval = SETTINGS.get("order_update_interval", 300)
 
         if self.order_update_interval >= update_interval:
             self.order_update_interval = 0
             orders: List[OrderData] = self.get_all_active_orders()
             for order in orders:
-                if order.update_time and (datetime.now(order.update_time.tzinfo) - order.update_time).seconds > update_interval:
+                if (
+                    order.update_time
+                    and (
+                        datetime.now(order.update_time.tzinfo) - order.update_time
+                    ).seconds
+                    > update_interval
+                ):
                     req = order.create_query_request()
                     self.main_engine.query_order(req, order.gateway_name)
 
-        if self.position_update_interval >= SETTINGS.get('position_update_interval', 120):
+        if self.position_update_interval >= SETTINGS.get(
+            "position_update_interval", 120
+        ):
             self.position_update_interval = 0
             for gateway_name in self.main_engine.gateways:
                 self.main_engine.query_position(gateway_name)
 
-        if self.account_update_interval >= SETTINGS.get('account_update_interval', 120):
+        if self.account_update_interval >= SETTINGS.get("account_update_interval", 120):
             self.account_update_interval = 0
             for gateway_name in self.main_engine.gateways:
                 self.main_engine.query_account(gateway_name)
@@ -677,9 +698,7 @@ class EmailEngine(BaseEngine):
                 with smtplib.SMTP_SSL(
                     SETTINGS["email.server"], SETTINGS["email.port"]
                 ) as smtp:
-                    smtp.login(
-                        SETTINGS["email.username"], SETTINGS["email.password"]
-                    )
+                    smtp.login(SETTINGS["email.username"], SETTINGS["email.password"])
                     smtp.send_message(msg)
             except Empty:
                 pass
