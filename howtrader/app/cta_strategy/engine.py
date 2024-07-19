@@ -742,7 +742,6 @@ class CtaEngine(BaseEngine):
         if exchange_str not in Exchange.__members__:
             self.write_log("create strategy failed, exchange not found")
             return
-
         strategy: CtaTemplate = strategy_class(self, strategy_name, vt_symbol, setting)
         self.strategies[strategy_name] = strategy
 

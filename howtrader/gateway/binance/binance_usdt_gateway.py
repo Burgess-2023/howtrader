@@ -1265,8 +1265,8 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
             channels = []
             for symbol in self.ticks.keys():
                 channels.append(f"{symbol}@ticker")
-                channels.append(f"{symbol}@depth5")
-
+                # channels.append(f"{symbol}@depth5")
+                channels.append(f"{symbol}@depth5@100ms")
             req: dict = {"method": "SUBSCRIBE", "params": channels, "id": self.reqid}
             self.send_packet(req)
 
@@ -1291,7 +1291,11 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
         )
         self.ticks[req.symbol.lower()] = tick
 
-        channels = [f"{req.symbol.lower()}@ticker", f"{req.symbol.lower()}@depth5"]
+        channels = [
+            f"{req.symbol.lower()}@ticker",
+            f"{req.symbol.lower()}@depth5@100ms",
+        ]
+        # channels = [f"{req.symbol.lower()}@ticker"]
 
         req: dict = {"method": "SUBSCRIBE", "params": channels, "id": self.reqid}
         self.send_packet(req)
@@ -1306,7 +1310,10 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
             return
 
         self.reqid += 1
-        channels = [f"{req.symbol.lower()}@ticker", f"{req.symbol.lower()}@depth5"]
+        channels = [
+            f"{req.symbol.lower()}@ticker",
+            f"{req.symbol.lower()}@depth5@100ms",
+        ]
 
         req: dict = {"method": "UNSUBSCRIBE", "params": channels, "id": self.reqid}
         self.send_packet(req)
@@ -1319,8 +1326,8 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
             return
 
         data: dict = packet["data"]
-
-        symbol, channel = stream.split("@")
+        symbol = stream.split("@")[0]
+        channel = stream.split("@")[1]
         tick: TickData = self.ticks[symbol]
 
         if channel == "ticker":
@@ -1331,6 +1338,7 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
             tick.low_price = float(data["l"])
             tick.last_price = float(data["c"])
             tick.datetime = generate_datetime(float(data["E"]))
+
         else:
             bids: list = data["b"]
             for n in range(min(5, len(bids))):
@@ -1344,6 +1352,20 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
                 tick.__setattr__("ask_price_" + str(n + 1), float(price))
                 tick.__setattr__("ask_volume_" + str(n + 1), float(volume))
 
+            # custom update
+            tick.datetime = generate_datetime(float(data["E"]))
+            last_price = Decimal(
+                (
+                    tick.ask_price_1 * tick.ask_volume_1
+                    + tick.bid_price_1 * tick.bid_volume_1
+                )
+                / (tick.ask_volume_1 + tick.bid_volume_1)
+            )
+            precision = (
+                Decimal(10) ** Decimal(str(tick.ask_price_1)).as_tuple().exponent
+            )
+            tick.last_price = last_price.quantize(precision)
+
         if tick.last_price:
             tick.localtime = datetime.now()
             self.gateway.on_tick(copy(tick))
@@ -1353,4 +1375,5 @@ def generate_datetime(timestamp: float) -> datetime:
     """generate time"""
     dt: datetime = datetime.fromtimestamp(timestamp / 1000)
     dt: datetime = LOCAL_TZ.localize(dt)
+
     return dt

@@ -13,6 +13,7 @@ class Direction(Enum):
     """
     Direction of order/trade/position.
     """
+
     LONG = "Long"
     SHORT = "Short"
     NET = "Net"
@@ -22,6 +23,7 @@ class Offset(Enum):
     """
     Offset of order/trade.
     """
+
     NONE = ""
     OPEN = "OPEN"
     CLOSE = "CLOSE"
@@ -33,6 +35,7 @@ class Status(Enum):
     """
     Order status.
     """
+
     SUBMITTING = "SUBMITTING"
     NOTTRADED = "NOTTRADED"
     PARTTRADED = "PARTTRADED"
@@ -45,6 +48,7 @@ class Product(Enum):
     """
     Product class.
     """
+
     SPOT = "SPOT"
     FUTURES = "FUTURES"
     OPTION = "OPTION"
@@ -62,6 +66,7 @@ class OrderType(Enum):
     """
     Order type.
     """
+
     LIMIT = "LIMIT"
     TAKER = "TAKER"
     MAKER = "MAKER"
@@ -75,6 +80,7 @@ class OptionType(Enum):
     """
     Option type.
     """
+
     CALL = "CALL"
     PUT = "PUT"
 
@@ -83,6 +89,7 @@ class Exchange(Enum):
     """
     Exchange.
     """
+
     # CryptoCurrency
     FTX = "FTX"
     OKX = "OKX"  # previous OKEX
@@ -91,7 +98,7 @@ class Exchange(Enum):
     BYBIT = "BYBIT"  # bybit.com
 
     # Special Function
-    LOCAL = "LOCAL"         # For local generated data
+    LOCAL = "LOCAL"  # For local generated data
 
     # Chinese
     CFFEX = "CFFEX"  # China Financial Futures Exchange
@@ -144,6 +151,7 @@ class Currency(Enum):
     """
     Currency.
     """
+
     USD = "USD"
     HKD = "HKD"
     CNY = "CNY"
@@ -154,6 +162,7 @@ class Interval(Enum):
     Interval of bar data.
 
     """
+
     MINUTE = "1m"
     MINUTE_3 = "3m"
     MINUTE_5 = "5m"
@@ -174,5 +183,3 @@ class Interval(Enum):
     MONTH = "1M"
 
     TICK = "tick"
-
-

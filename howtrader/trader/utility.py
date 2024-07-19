@@ -19,7 +19,7 @@ from .constant import Exchange, Interval
 from zoneinfo import ZoneInfo
 
 
-log_formatter: logging.Formatter = logging.Formatter('[%(asctime)s] %(message)s')
+log_formatter: logging.Formatter = logging.Formatter("[%(asctime)s] %(message)s")
 
 
 def extract_vt_symbol(vt_symbol: str) -> Tuple[str, Exchange]:
@@ -93,8 +93,8 @@ def load_yaml(filename: str) -> dict:
     else:
         with open(filepath, "r") as file:
             return yaml.load(file, Loader=yaml.FullLoader)
-        
-        
+
+
 def load_json(filename: str) -> dict:
     """
     Load data from json file in temp path.
@@ -116,16 +116,18 @@ def save_json(filename: str, data: dict) -> None:
     """
     filepath: Path = get_file_path(filename)
     with open(filepath, mode="w+", encoding="UTF-8") as f:
-        simplejson.dump(
-            data,
-            f,
-            indent=4,
-            ensure_ascii=False,
-            use_decimal=True
-        )
+        simplejson.dump(data, f, indent=4, ensure_ascii=False, use_decimal=True)
 
 
-def round_to(value: Union[Decimal, float, int], target: Union[Decimal, float, int]) -> Decimal:
+def decimal_default(obj):
+    if isinstance(obj, Decimal):
+        return float(obj)
+    raise TypeError
+
+
+def round_to(
+    value: Union[Decimal, float, int], target: Union[Decimal, float, int]
+) -> Decimal:
     """
     Round price to price tick value.
     """
@@ -135,7 +137,9 @@ def round_to(value: Union[Decimal, float, int], target: Union[Decimal, float, in
     return rounded
 
 
-def floor_to(value: Union[Decimal, float, int], target: Union[Decimal, float, int]) -> Decimal:
+def floor_to(
+    value: Union[Decimal, float, int], target: Union[Decimal, float, int]
+) -> Decimal:
     """
     Similar to math.floor function, but to target float number.
     """
@@ -146,7 +150,9 @@ def floor_to(value: Union[Decimal, float, int], target: Union[Decimal, float, in
     return result
 
 
-def ceil_to(value: Union[Decimal, float, int], target: Union[Decimal, float, int]) -> Decimal:
+def ceil_to(
+    value: Union[Decimal, float, int], target: Union[Decimal, float, int]
+) -> Decimal:
     """
     Similar to math.ceil function, but to target float number.
     """
@@ -186,7 +192,7 @@ class BarGenerator:
         on_bar: Callable,
         window: int = 0,
         on_window_bar: Callable = None,
-        interval: Interval = Interval.MINUTE
+        interval: Interval = Interval.MINUTE,
     ) -> None:
         """Constructor"""
         self.bar: BarData = None
@@ -219,13 +225,10 @@ class BarGenerator:
 
         if not self.bar:
             new_minute = True
-        elif (
-            (self.bar.datetime.minute != tick.datetime.minute)
-            or (self.bar.datetime.hour != tick.datetime.hour)
+        elif (self.bar.datetime.minute != tick.datetime.minute) or (
+            self.bar.datetime.hour != tick.datetime.hour
         ):
-            self.bar.datetime = self.bar.datetime.replace(
-                second=0, microsecond=0
-            )
+            self.bar.datetime = self.bar.datetime.replace(second=0, microsecond=0)
             self.on_bar(self.bar)
 
             new_minute = True
@@ -241,7 +244,7 @@ class BarGenerator:
                 high_price=tick.last_price,
                 low_price=tick.last_price,
                 close_price=tick.last_price,
-                open_interest=tick.open_interest
+                open_interest=tick.open_interest,
             )
         else:
             self.bar.high_price = max(self.bar.high_price, tick.last_price)
@@ -286,18 +289,12 @@ class BarGenerator:
                 gateway_name=bar.gateway_name,
                 open_price=bar.open_price,
                 high_price=bar.high_price,
-                low_price=bar.low_price
+                low_price=bar.low_price,
             )
         # Otherwise, update high/low price into window bar
         else:
-            self.window_bar.high_price = max(
-                self.window_bar.high_price,
-                bar.high_price
-            )
-            self.window_bar.low_price = min(
-                self.window_bar.low_price,
-                bar.low_price
-            )
+            self.window_bar.high_price = max(self.window_bar.high_price, bar.high_price)
+            self.window_bar.low_price = min(self.window_bar.low_price, bar.low_price)
 
         # Update close price/volume/turnover into window bar
         self.window_bar.close_price = bar.close_price
@@ -326,7 +323,7 @@ class BarGenerator:
                 close_price=bar.close_price,
                 volume=bar.volume,
                 turnover=bar.turnover,
-                open_interest=bar.open_interest
+                open_interest=bar.open_interest,
             )
             return
 
@@ -334,14 +331,8 @@ class BarGenerator:
 
         # If minute is 59, update minute bar into window bar and push
         if bar.datetime.minute == 59:
-            self.hour_bar.high_price = max(
-                self.hour_bar.high_price,
-                bar.high_price
-            )
-            self.hour_bar.low_price = min(
-                self.hour_bar.low_price,
-                bar.low_price
-            )
+            self.hour_bar.high_price = max(self.hour_bar.high_price, bar.high_price)
+            self.hour_bar.low_price = min(self.hour_bar.low_price, bar.low_price)
 
             self.hour_bar.close_price = bar.close_price
             self.hour_bar.volume += bar.volume
@@ -367,18 +358,12 @@ class BarGenerator:
                 close_price=bar.close_price,
                 volume=bar.volume,
                 turnover=bar.turnover,
-                open_interest=bar.open_interest
+                open_interest=bar.open_interest,
             )
         # Otherwise only update minute bar
         else:
-            self.hour_bar.high_price = max(
-                self.hour_bar.high_price,
-                bar.high_price
-            )
-            self.hour_bar.low_price = min(
-                self.hour_bar.low_price,
-                bar.low_price
-            )
+            self.hour_bar.high_price = max(self.hour_bar.high_price, bar.high_price)
+            self.hour_bar.low_price = min(self.hour_bar.low_price, bar.low_price)
 
             self.hour_bar.close_price = bar.close_price
             self.hour_bar.volume += bar.volume
@@ -402,16 +387,14 @@ class BarGenerator:
                     gateway_name=bar.gateway_name,
                     open_price=bar.open_price,
                     high_price=bar.high_price,
-                    low_price=bar.low_price
+                    low_price=bar.low_price,
                 )
             else:
                 self.window_bar.high_price = max(
-                    self.window_bar.high_price,
-                    bar.high_price
+                    self.window_bar.high_price, bar.high_price
                 )
                 self.window_bar.low_price = min(
-                    self.window_bar.low_price,
-                    bar.low_price
+                    self.window_bar.low_price, bar.low_price
                 )
 
             self.window_bar.close_price = bar.close_price
@@ -570,11 +553,7 @@ class ArrayManager(object):
         return result[-1]
 
     def apo(
-        self,
-        fast_period: int,
-        slow_period: int,
-        matype: int = 0,
-        array: bool = False
+        self, fast_period: int, slow_period: int, matype: int = 0, array: bool = False
     ) -> Union[float, np.ndarray]:
         """
         APO.
@@ -603,11 +582,7 @@ class ArrayManager(object):
         return result[-1]
 
     def ppo(
-        self,
-        fast_period: int,
-        slow_period: int,
-        matype: int = 0,
-        array: bool = False
+        self, fast_period: int, slow_period: int, matype: int = 0, array: bool = False
     ) -> Union[float, np.ndarray]:
         """
         PPO.
@@ -662,7 +637,9 @@ class ArrayManager(object):
             return result
         return result[-1]
 
-    def std(self, n: int, nbdev: int = 1, array: bool = False) -> Union[float, np.ndarray]:
+    def std(
+        self, n: int, nbdev: int = 1, array: bool = False
+    ) -> Union[float, np.ndarray]:
         """
         Standard deviation.
         """
@@ -721,11 +698,8 @@ class ArrayManager(object):
         fast_period: int,
         slow_period: int,
         signal_period: int,
-        array: bool = False
-    ) -> Union[
-        Tuple[np.ndarray, np.ndarray, np.ndarray],
-        Tuple[float, float, float]
-    ]:
+        array: bool = False,
+    ) -> Union[Tuple[np.ndarray, np.ndarray, np.ndarray], Tuple[float, float, float]]:
         """
         MACD.
         """
@@ -795,12 +769,14 @@ class ArrayManager(object):
         time_period1: int = 7,
         time_period2: int = 14,
         time_period3: int = 28,
-        array: bool = False
+        array: bool = False,
     ) -> Union[float, np.ndarray]:
         """
         Ultimate Oscillator.
         """
-        result: np.ndarray = talib.ULTOSC(self.high, self.low, self.close, time_period1, time_period2, time_period3)
+        result: np.ndarray = talib.ULTOSC(
+            self.high, self.low, self.close, time_period1, time_period2, time_period3
+        )
         if array:
             return result
         return result[-1]
@@ -815,14 +791,8 @@ class ArrayManager(object):
         return result[-1]
 
     def boll(
-        self,
-        n: int,
-        dev: float,
-        array: bool = False
-    ) -> Union[
-        Tuple[np.ndarray, np.ndarray],
-        Tuple[float, float]
-    ]:
+        self, n: int, dev: float, array: bool = False
+    ) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[float, float]]:
         """
         Bollinger Channel.
         """
@@ -835,14 +805,8 @@ class ArrayManager(object):
         return up, down
 
     def keltner(
-        self,
-        n: int,
-        dev: float,
-        array: bool = False
-    ) -> Union[
-        Tuple[np.ndarray, np.ndarray],
-        Tuple[float, float]
-    ]:
+        self, n: int, dev: float, array: bool = False
+    ) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[float, float]]:
         """
         Keltner Channel.
         """
@@ -856,10 +820,7 @@ class ArrayManager(object):
 
     def donchian(
         self, n: int, array: bool = False
-    ) -> Union[
-        Tuple[np.ndarray, np.ndarray],
-        Tuple[float, float]
-    ]:
+    ) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[float, float]]:
         """
         Donchian Channel.
         """
@@ -871,13 +832,8 @@ class ArrayManager(object):
         return up[-1], down[-1]
 
     def aroon(
-        self,
-        n: int,
-        array: bool = False
-    ) -> Union[
-        Tuple[np.ndarray, np.ndarray],
-        Tuple[float, float]
-    ]:
+        self, n: int, array: bool = False
+    ) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[float, float]]:
         """
         Aroon indicator.
         """
@@ -936,15 +892,14 @@ class ArrayManager(object):
         return result[-1]
 
     def adosc(
-        self,
-        fast_period: int,
-        slow_period: int,
-        array: bool = False
+        self, fast_period: int, slow_period: int, array: bool = False
     ) -> Union[float, np.ndarray]:
         """
         ADOSC.
         """
-        result: np.ndarray = talib.ADOSC(self.high, self.low, self.close, self.volume, fast_period, slow_period)
+        result: np.ndarray = talib.ADOSC(
+            self.high, self.low, self.close, self.volume, fast_period, slow_period
+        )
         if array:
             return result
         return result[-1]
@@ -966,11 +921,8 @@ class ArrayManager(object):
         slowk_matype: int,
         slowd_period: int,
         slowd_matype: int,
-        array: bool = False
-    ) -> Union[
-        Tuple[float, float],
-        Tuple[np.ndarray, np.ndarray]
-    ]:
+        array: bool = False,
+    ) -> Union[Tuple[float, float], Tuple[np.ndarray, np.ndarray]]:
         """
         Stochastic Indicator
         """
@@ -982,7 +934,7 @@ class ArrayManager(object):
             slowk_period,
             slowk_matype,
             slowd_period,
-            slowd_matype
+            slowd_matype,
         )
         if array:
             return k, d
@@ -1014,7 +966,9 @@ def get_file_logger(filename: str) -> logging.Logger:
     return a logger that writes records into a file.
     """
     logger: logging.Logger = logging.getLogger(filename)
-    handler: logging.FileHandler = _get_file_logger_handler(filename)  # get singleton handler.
+    handler: logging.FileHandler = _get_file_logger_handler(
+        filename
+    )  # get singleton handler.
     handler.setFormatter(log_formatter)
     logger.addHandler(handler)  # each handler will be added only once.
     return logger

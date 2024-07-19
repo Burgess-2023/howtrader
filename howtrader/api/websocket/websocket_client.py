@@ -10,7 +10,7 @@ from asyncio import (
     set_event_loop,
     run_coroutine_threadsafe,
     AbstractEventLoop,
-    TimeoutError
+    TimeoutError,
 )
 from typing import Optional
 from aiohttp import ClientSession, ClientWebSocketResponse
@@ -51,7 +51,7 @@ class WebsocketClient:
         proxy_host: str = "",
         proxy_port: int = 0,
         ping_interval: int = 60,
-        header: dict = None
+        header: dict = None,
     ):
         """
         init client, only support the http proxy.
@@ -141,12 +141,7 @@ class WebsocketClient:
         """on packed callback"""
         pass
 
-    def on_error(
-        self,
-        exception_type: type,
-        exception_value: Exception,
-        tb
-    ) -> None:
+    def on_error(self, exception_type: type, exception_value: Exception, tb) -> None:
         """raise error"""
         try:
             print("WebsocketClient on error" + "-" * 10)
@@ -155,10 +150,7 @@ class WebsocketClient:
             traceback.print_exc()
 
     def exception_detail(
-        self,
-        exception_type: type,
-        exception_value: Exception,
-        tb
+        self, exception_type: type, exception_value: Exception, tb
     ) -> str:
         """format the exception detail in str"""
         text = "[{}]: Unhandled WebSocket Error:{}\n".format(
@@ -167,9 +159,7 @@ class WebsocketClient:
         text += "LastSentText:\n{}\n".format(self._last_sent_text)
         text += "LastReceivedText:\n{}\n".format(self._last_received_text)
         text += "Exception trace: \n"
-        text += "".join(
-            traceback.format_exception(exception_type, exception_value, tb)
-        )
+        text += "".join(traceback.format_exception(exception_type, exception_value, tb))
         return text
 
     async def _run(self):
