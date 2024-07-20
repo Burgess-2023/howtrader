@@ -1364,7 +1364,7 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
             precision = (
                 Decimal(10) ** Decimal(str(tick.ask_price_1)).as_tuple().exponent
             )
-            tick.last_price = last_price.quantize(precision)
+            tick.last_price = float(last_price.quantize(precision))
 
         if tick.last_price:
             tick.localtime = datetime.now()
