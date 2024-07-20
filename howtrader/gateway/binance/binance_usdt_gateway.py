@@ -1315,6 +1315,7 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
             f"{req.symbol.lower()}@depth5@100ms",
         ]
 
+        self.ticks.pop(req.symbol.lower())
         req: dict = {"method": "UNSUBSCRIBE", "params": channels, "id": self.reqid}
         self.send_packet(req)
 
@@ -1328,6 +1329,8 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
         data: dict = packet["data"]
         symbol = stream.split("@")[0]
         channel = stream.split("@")[1]
+        if symbol not in self.ticks:
+            return
         tick: TickData = self.ticks[symbol]
 
         if channel == "ticker":
