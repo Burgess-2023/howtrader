@@ -33,8 +33,9 @@ from howtrader.trader.object import (
     OrderRequest,
     CancelRequest,
     SubscribeRequest,
+    UnsubcribeRequest,
     HistoryRequest,
-    OriginalKlineData
+    OriginalKlineData,
 )
 from howtrader.trader.event import EVENT_TIMER
 from howtrader.event import Event, EventEngine
@@ -58,7 +59,7 @@ STATUS_BINANCE2VT: Dict[str, Status] = {
     "FILLED": Status.ALLTRADED,
     "CANCELED": Status.CANCELLED,
     "REJECTED": Status.REJECTED,
-    "EXPIRED": Status.CANCELLED
+    "EXPIRED": Status.CANCELLED,
 }
 
 # order type mapping
@@ -67,14 +68,18 @@ ORDERTYPE_VT2BINANCE: Dict[OrderType, str] = {
     OrderType.TAKER: "MARKET",
     OrderType.MAKER: "LIMIT_MAKER",
 }
-ORDERTYPE_BINANCE2VT: Dict[str, OrderType] = {v: k for k, v in ORDERTYPE_VT2BINANCE.items()}
+ORDERTYPE_BINANCE2VT: Dict[str, OrderType] = {
+    v: k for k, v in ORDERTYPE_VT2BINANCE.items()
+}
 
 # order direction mapping
 DIRECTION_VT2BINANCE: Dict[Direction, str] = {
     Direction.LONG: "BUY",
-    Direction.SHORT: "SELL"
+    Direction.SHORT: "SELL",
 }
-DIRECTION_BINANCE2VT: Dict[str, Direction] = {v: k for k, v in DIRECTION_VT2BINANCE.items()}
+DIRECTION_BINANCE2VT: Dict[str, Direction] = {
+    v: k for k, v in DIRECTION_VT2BINANCE.items()
+}
 
 # data timeframe mapping
 INTERVAL_VT2BINANCE: Dict[Interval, str] = {
@@ -92,7 +97,7 @@ INTERVAL_VT2BINANCE: Dict[Interval, str] = {
     Interval.DAILY: "1d",
     Interval.DAILY_3: "3d",
     Interval.WEEKLY: "1w",
-    Interval.MONTH: "1M"
+    Interval.MONTH: "1M",
 }
 
 # time delta mapping
@@ -124,7 +129,7 @@ class BinanceSpotGateway(BaseGateway):
         "key": "",
         "secret": "",
         "proxy_host": "",
-        "proxy_port": 0
+        "proxy_port": 0,
     }
 
     exchanges: Exchange = [Exchange.BINANCE]
@@ -133,8 +138,12 @@ class BinanceSpotGateway(BaseGateway):
         """init"""
         super().__init__(event_engine, gateway_name)
 
-        self.trade_ws_api: "BinanceSpotTradeWebsocketApi" = BinanceSpotTradeWebsocketApi(self)
-        self.market_ws_api: "BinanceSpotDataWebsocketApi" = BinanceSpotDataWebsocketApi(self)
+        self.trade_ws_api: "BinanceSpotTradeWebsocketApi" = (
+            BinanceSpotTradeWebsocketApi(self)
+        )
+        self.market_ws_api: "BinanceSpotDataWebsocketApi" = BinanceSpotDataWebsocketApi(
+            self
+        )
         self.rest_api: "BinanceSpotRestAPi" = BinanceSpotRestAPi(self)
 
         self.orders: Dict[str, OrderData] = {}
@@ -167,6 +176,10 @@ class BinanceSpotGateway(BaseGateway):
         """subscribe market data"""
         self.market_ws_api.subscribe(req)
 
+    def unsubscribe(self, req: UnsubcribeRequest) -> None:
+        """unsubscribe data"""
+        self.market_ws_api.unsubscribe(req)
+
     def send_order(self, req: OrderRequest) -> str:
         """place order"""
         return self.rest_api.send_order(req)
@@ -185,7 +198,7 @@ class BinanceSpotGateway(BaseGateway):
 
     def query_priceticker(self):
         return self.rest_api.query_priceticker()
-    
+
     def query_order(self, req: OrderQueryRequest) -> None:
         self.rest_api.query_order(req)
 
@@ -207,7 +220,9 @@ class BinanceSpotGateway(BaseGateway):
         self.rest_api.keep_user_stream()
         self.get_server_time_interval += 1
 
-        if self.get_server_time_interval >= SETTINGS.get('update_server_time_interval', 300):
+        if self.get_server_time_interval >= SETTINGS.get(
+            "update_server_time_interval", 300
+        ):
             self.rest_api.query_time()
             self.get_server_time_interval = 0
 
@@ -221,7 +236,7 @@ class BinanceSpotGateway(BaseGateway):
 
         else:
             traded: Decimal = order.traded - last_order.traded
-            if traded < 0: # filter the order is not in sequence
+            if traded < 0:  # filter the order is not in sequence
                 return None
 
             if traded > 0:
@@ -297,7 +312,9 @@ class BinanceSpotRestAPi(RestClient):
             request.params["timestamp"] = timestamp
 
             query: str = urllib.parse.urlencode(sorted(request.params.items()))
-            signature: str = hmac.new(self.secret, query.encode("utf-8"), hashlib.sha256).hexdigest()
+            signature: str = hmac.new(
+                self.secret, query.encode("utf-8"), hashlib.sha256
+            ).hexdigest()
 
             query += "&signature={}".format(signature)
             path: str = request.path + "?" + query
@@ -310,7 +327,7 @@ class BinanceSpotRestAPi(RestClient):
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
             "Accept": "application/json",
-            "X-MBX-APIKEY": self.key
+            "X-MBX-APIKEY": self.key,
         }
 
         if security in [Security.SIGNED, Security.API_KEY]:
@@ -318,13 +335,7 @@ class BinanceSpotRestAPi(RestClient):
 
         return request
 
-    def connect(
-            self,
-            key: str,
-            secret: str,
-            proxy_host: str,
-            proxy_port: int
-    ) -> None:
+    def connect(self, key: str, secret: str, proxy_host: str, proxy_port: int) -> None:
         """connect rest api"""
         self.key = key
         self.secret = secret.encode()
@@ -332,7 +343,7 @@ class BinanceSpotRestAPi(RestClient):
         self.proxy_host = proxy_host
 
         self.connect_time = (
-                int(datetime.now(LOCAL_TZ).strftime("%y%m%d%H%M%S")) * self.order_count
+            int(datetime.now(LOCAL_TZ).strftime("%y%m%d%H%M%S")) * self.order_count
         )
 
         self.init(REST_HOST, proxy_host, proxy_port)
@@ -349,9 +360,7 @@ class BinanceSpotRestAPi(RestClient):
 
     def query_time(self) -> None:
         """query time"""
-        data: dict = {
-            "security": Security.NONE
-        }
+        data: dict = {"security": Security.NONE}
         path: str = "/api/v3/time"
 
         self.add_request(
@@ -360,7 +369,7 @@ class BinanceSpotRestAPi(RestClient):
             callback=self.on_query_time,
             on_failed=self.on_query_time_failed,
             on_error=self.on_query_time_error,
-            data=data
+            data=data,
         )
 
     def query_account(self) -> None:
@@ -371,7 +380,7 @@ class BinanceSpotRestAPi(RestClient):
             method="GET",
             path="/api/v3/account",
             callback=self.on_query_account,
-            data=data
+            data=data,
         )
 
     def query_order(self, req: OrderQueryRequest) -> None:
@@ -380,14 +389,9 @@ class BinanceSpotRestAPi(RestClient):
         :param req:
         :return:
         """
-        data = {
-            "security": Security.SIGNED
-        }
+        data = {"security": Security.SIGNED}
 
-        params = {
-            "symbol": req.symbol.upper(),
-            "origClientOrderId": req.orderid
-        }
+        params = {"symbol": req.symbol.upper(), "origClientOrderId": req.orderid}
 
         self.add_request(
             method="GET",
@@ -395,7 +399,7 @@ class BinanceSpotRestAPi(RestClient):
             callback=self.on_query_order,
             params=params,
             data=data,
-            extra=req
+            extra=req,
         )
 
     def query_orders(self) -> None:
@@ -406,40 +410,33 @@ class BinanceSpotRestAPi(RestClient):
             method="GET",
             path="/api/v3/openOrders",
             callback=self.on_query_orders,
-            data=data
+            data=data,
         )
 
-    def query_priceticker(self) ->None:
+    def query_priceticker(self) -> None:
         """query price ticker"""
 
-        data: dict = {
-            "security": Security.NONE
-        }
+        data: dict = {"security": Security.NONE}
         path = "/api/v3/ticker/price"
-        resp: Response = self.request(
-            "GET",
-            path=path,
-            data=data
-        )
-        
+        resp: Response = self.request("GET", path=path, data=data)
+
         if resp.status_code // 100 != 2:
-            msg: str = f"query latest price ticker failed, status code：{resp.status_code}，msg：{resp.text}"
+            msg: str = (
+                f"query latest price ticker failed, status code：{resp.status_code}，msg：{resp.text}"
+            )
             self.gateway.write_log(msg)
         else:
             data: dict = resp.json()
             return data
-            
 
     def query_contract(self) -> None:
         """query contract detail or exchange info detail"""
-        data: dict = {
-            "security": Security.NONE
-        }
+        data: dict = {"security": Security.NONE}
         self.add_request(
             method="GET",
             path="/api/v3/exchangeInfo",
             callback=self.on_query_contract,
-            data=data
+            data=data,
         )
 
     def _new_order_id(self) -> int:
@@ -454,25 +451,20 @@ class BinanceSpotRestAPi(RestClient):
         orderid: str = "x-A6SIDXVS" + str(self.connect_time + self._new_order_id())
 
         # create order by OrderRequest
-        order: OrderData = req.create_order_data(
-            orderid,
-            self.gateway_name
-        )
+        order: OrderData = req.create_order_data(orderid, self.gateway_name)
 
         self.gateway.on_order(order)
 
-        data: dict = {
-            "security": Security.SIGNED
-        }
+        data: dict = {"security": Security.SIGNED}
 
         # order request parameters
         params: dict = {
             "symbol": req.symbol.upper(),
             "side": DIRECTION_VT2BINANCE[req.direction],
             "type": ORDERTYPE_VT2BINANCE[req.type],
-            "quantity": req.volume, # format(req.volume, "f")
+            "quantity": req.volume,  # format(req.volume, "f")
             "newClientOrderId": orderid,
-            "newOrderRespType": "RESULT"
+            "newOrderRespType": "RESULT",
         }
 
         if req.type == OrderType.LIMIT:
@@ -489,21 +481,16 @@ class BinanceSpotRestAPi(RestClient):
             params=params,
             extra=order,
             on_error=self.on_send_order_error,
-            on_failed=self.on_send_order_failed
+            on_failed=self.on_send_order_failed,
         )
 
         return order.vt_orderid
 
     def cancel_order(self, req: CancelRequest) -> None:
         """cancel order"""
-        data: dict = {
-            "security": Security.SIGNED
-        }
+        data: dict = {"security": Security.SIGNED}
 
-        params: dict = {
-            "symbol": req.symbol.upper(),
-            "origClientOrderId": req.orderid
-        }
+        params: dict = {"symbol": req.symbol.upper(), "origClientOrderId": req.orderid}
 
         order: OrderData = self.gateway.get_order(req.orderid)
 
@@ -514,14 +501,12 @@ class BinanceSpotRestAPi(RestClient):
             params=params,
             data=data,
             on_failed=self.on_cancel_order_failed,
-            extra=order
+            extra=order,
         )
 
     def start_user_stream(self) -> None:
         """post listenKey"""
-        data: dict = {
-            "security": Security.API_KEY
-        }
+        data: dict = {"security": Security.API_KEY}
 
         self.add_request(
             method="POST",
@@ -529,23 +514,19 @@ class BinanceSpotRestAPi(RestClient):
             callback=self.on_start_user_stream,
             on_failed=self.on_start_user_stream_failed,
             on_error=self.on_start_user_stream_error,
-            data=data
+            data=data,
         )
 
     def keep_user_stream(self) -> None:
-        """extend listenKey expire time """
+        """extend listenKey expire time"""
         self.keep_alive_count += 1
         if self.keep_alive_count < 300:
             return None
         self.keep_alive_count = 0
 
-        data: dict = {
-            "security": Security.API_KEY
-        }
+        data: dict = {"security": Security.API_KEY}
 
-        params: dict = {
-            "listenKey": self.user_stream_key
-        }
+        params: dict = {"listenKey": self.user_stream_key}
 
         self.add_request(
             method="PUT",
@@ -554,7 +535,7 @@ class BinanceSpotRestAPi(RestClient):
             params=params,
             data=data,
             on_failed=self.on_keep_user_stream_failed,
-            on_error=self.on_keep_user_stream_error
+            on_error=self.on_keep_user_stream_error,
         )
 
     def on_query_time(self, data: dict, request: Request) -> None:
@@ -566,7 +547,9 @@ class BinanceSpotRestAPi(RestClient):
     def on_query_time_failed(self, status_code: int, request: Request):
         self.query_time()
 
-    def on_query_time_error(self, exception_type: type, exception_value: Exception, tb, request: Request) -> None:
+    def on_query_time_error(
+        self, exception_type: type, exception_value: Exception, tb, request: Request
+    ) -> None:
         self.query_time()
 
     def on_query_account(self, data: dict, request: Request) -> None:
@@ -576,21 +559,21 @@ class BinanceSpotRestAPi(RestClient):
                 accountid=account_data["asset"],
                 balance=float(account_data["free"]) + float(account_data["locked"]),
                 frozen=float(account_data["locked"]),
-                gateway_name=self.gateway_name
+                gateway_name=self.gateway_name,
             )
 
             self.gateway.on_account(account)
 
-        #self.gateway.write_log("query account successfully")
+        # self.gateway.write_log("query account successfully")
 
     def on_query_order(self, data: dict, request: Request) -> None:
 
-        traded = Decimal(data.get('executedQty', '0'))
-        price = Decimal(data.get('price', '0'))
+        traded = Decimal(data.get("executedQty", "0"))
+        price = Decimal(data.get("price", "0"))
         traded_price = Decimal("0")
         if traded > 0:
-            traded_quote = Decimal(data.get('cummulativeQuoteQty', '0'))
-            traded_price = traded_quote/traded
+            traded_quote = Decimal(data.get("cummulativeQuoteQty", "0"))
+            traded_price = traded_quote / traded
         if price <= 0 < traded_price:
             price = traded_price
 
@@ -602,7 +585,7 @@ class BinanceSpotRestAPi(RestClient):
             volume=Decimal(data["origQty"]),
             traded=traded,
             traded_price=traded_price,
-            type=ORDERTYPE_BINANCE2VT.get(data["type"],OrderType.LIMIT),
+            type=ORDERTYPE_BINANCE2VT.get(data["type"], OrderType.LIMIT),
             direction=DIRECTION_BINANCE2VT[data["side"]],
             status=STATUS_BINANCE2VT.get(data["status"], Status.NOTTRADED),
             datetime=generate_datetime(data["time"]),
@@ -616,11 +599,11 @@ class BinanceSpotRestAPi(RestClient):
             # filter the unsupported order type
             # if d["type"] not in ORDERTYPE_BINANCE2VT:
             #     continue
-            price = Decimal(data.get("price", '0'))
-            traded = Decimal(data.get('executedQty', '0'))
+            price = Decimal(data.get("price", "0"))
+            traded = Decimal(data.get("executedQty", "0"))
             traded_price = Decimal("0")
             if traded > 0:
-                traded_quote = Decimal(data.get('cummulativeQuoteQty', '0'))
+                traded_quote = Decimal(data.get("cummulativeQuoteQty", "0"))
                 traded_price = traded_quote / traded
 
             if price <= 0 < traded_price:
@@ -663,7 +646,7 @@ class BinanceSpotRestAPi(RestClient):
                 elif f["filterType"] == "LOT_SIZE":
                     step = str(f["stepSize"]).rstrip("0")
                     min_volume = Decimal(step)
-                elif f.get('filterType') == 'MIN_NOTIONAL':
+                elif f.get("filterType") == "MIN_NOTIONAL":
                     notional = str(f["minNotional"]).rstrip("0")
                     min_notional = Decimal(notional)
 
@@ -690,11 +673,11 @@ class BinanceSpotRestAPi(RestClient):
         if request.extra:
             order: OrderData = copy(request.extra)
 
-            price = Decimal(data.get('price', '0'))
-            traded = Decimal(data.get('executedQty', '0'))
+            price = Decimal(data.get("price", "0"))
+            traded = Decimal(data.get("executedQty", "0"))
             traded_price = Decimal("0")
             if traded > 0:
-                traded_quote = Decimal(data.get('cummulativeQuoteQty', '0'))
+                traded_quote = Decimal(data.get("cummulativeQuoteQty", "0"))
                 traded_price = traded_quote / traded
 
             if price <= 0 < traded_price:
@@ -703,7 +686,7 @@ class BinanceSpotRestAPi(RestClient):
             order.traded = traded
             order.traded_price = traded_price
             order.price = price
-            order.status = STATUS_BINANCE2VT.get(data.get('status'), Status.NOTTRADED)
+            order.status = STATUS_BINANCE2VT.get(data.get("status"), Status.NOTTRADED)
             self.gateway.on_order(order)
 
     def on_send_order_failed(self, status_code: int, request: Request) -> None:
@@ -712,14 +695,18 @@ class BinanceSpotRestAPi(RestClient):
         if request.extra:
             order: OrderData = copy(request.extra)
             order.status = Status.REJECTED
-            order.rejected_reason = request.response.text if request.response.text else ""
+            order.rejected_reason = (
+                request.response.text if request.response.text else ""
+            )
             self.gateway.on_order(order)
 
-            msg: str = f"send order failed, orderid: {order.orderid}, status code：{status_code}, msg：{request.response.text}"
+            msg: str = (
+                f"send order failed, orderid: {order.orderid}, status code：{status_code}, msg：{request.response.text}"
+            )
             self.gateway.write_log(msg)
 
     def on_send_order_error(
-            self, exception_type: type, exception_value: Exception, tb, request: Request
+        self, exception_type: type, exception_value: Exception, tb, request: Request
     ) -> None:
         """send order error callback"""
         if request.extra:
@@ -735,11 +722,11 @@ class BinanceSpotRestAPi(RestClient):
         """cancel order callback"""
         if request.extra:
             order: OrderData = copy(request.extra)
-            price = Decimal(data.get('price', '0'))
-            traded = Decimal(data.get('executedQty', '0'))
+            price = Decimal(data.get("price", "0"))
+            traded = Decimal(data.get("executedQty", "0"))
             traded_price = Decimal("0")
             if traded > 0:
-                traded_quote = Decimal(data.get('cummulativeQuoteQty', '0'))
+                traded_quote = Decimal(data.get("cummulativeQuoteQty", "0"))
                 traded_price = traded_quote / traded
 
             if price <= 0 < traded_price:
@@ -748,15 +735,15 @@ class BinanceSpotRestAPi(RestClient):
             order.traded = traded
             order.price = price
             order.traded_price = traded_price
-            order.status = STATUS_BINANCE2VT.get(data.get('status'), Status.CANCELLED)
+            order.status = STATUS_BINANCE2VT.get(data.get("status"), Status.CANCELLED)
             self.gateway.on_order(order)
         else:
 
-            price = Decimal(data.get('price', '0'))
-            traded = Decimal(data.get('executedQty', '0'))
+            price = Decimal(data.get("price", "0"))
+            traded = Decimal(data.get("executedQty", "0"))
             traded_price = Decimal("0")
             if traded > 0:
-                traded_quote = Decimal(data.get('cummulativeQuoteQty', '0'))
+                traded_quote = Decimal(data.get("cummulativeQuoteQty", "0"))
                 traded_price = traded_quote / traded
 
             if price <= 0 < traded_price:
@@ -769,22 +756,21 @@ class BinanceSpotRestAPi(RestClient):
                 type=ORDERTYPE_BINANCE2VT.get(data.get("type"), OrderType.LIMIT),
                 direction=DIRECTION_BINANCE2VT.get(data.get("side")),
                 price=price,
-                volume=Decimal(data.get('origQty')),
+                volume=Decimal(data.get("origQty")),
                 traded=traded,
                 traded_price=traded_price,
-                status=STATUS_BINANCE2VT.get(data.get('status'), Status.CANCELLED),
-                gateway_name=self.gateway_name
+                status=STATUS_BINANCE2VT.get(data.get("status"), Status.CANCELLED),
+                gateway_name=self.gateway_name,
             )
 
             self.gateway.on_order(order)
-
 
     def on_cancel_order_failed(self, status_code: int, request: Request) -> None:
         """cancel order failed callback"""
         self.failed_with_timestamp(request)
         orderid = ""
         if request.extra:
-            order:OrderData = copy(request.extra)
+            order: OrderData = copy(request.extra)
             orderid = order.orderid
             # order.status = Status.REJECTED
             # self.gateway.on_order(copy(order))
@@ -807,7 +793,9 @@ class BinanceSpotRestAPi(RestClient):
         self.failed_with_timestamp(request)
         self.start_user_stream()
 
-    def on_start_user_stream_error(self, exception_type: type, exception_value: Exception, tb, request: Request):
+    def on_start_user_stream_error(
+        self, exception_type: type, exception_value: Exception, tb, request: Request
+    ):
         self.start_user_stream()
 
     def on_keep_user_stream(self, data: dict, request: Request) -> None:
@@ -825,7 +813,7 @@ class BinanceSpotRestAPi(RestClient):
             self.start_user_stream()
 
     def on_keep_user_stream_error(
-            self, exception_type: type, exception_value: Exception, tb, request: Request
+        self, exception_type: type, exception_value: Exception, tb, request: Request
     ) -> None:
         """put the listen key failed"""
 
@@ -860,27 +848,43 @@ class BinanceSpotRestAPi(RestClient):
             path="/api/v3/klines",
             callback=self.on_query_latest_kline,
             params=params,
-            data={"security": Security.NONE}
+            data={"security": Security.NONE},
         )
 
-    def on_query_latest_kline(self, datas:list, request: Request):
+    def on_query_latest_kline(self, datas: list, request: Request):
         if len(datas) > 0:
-            df = pd.DataFrame(datas, dtype=np.float64,
-                              columns=['open_time', 'open', 'high', 'low', 'close', 'volume', 'close_time', 'turnover',
-                                       'a2',
-                                       'a3', 'a4', 'a5'])
-            df = df[['open_time', 'open', 'high', 'low', 'close', 'volume', 'turnover']]
-            df.set_index('open_time', inplace=True)
-            df.index = pd.to_datetime(df.index, unit='ms') # + pd.Timedelta(hours=8) # use the utc time.
+            df = pd.DataFrame(
+                datas,
+                dtype=np.float64,
+                columns=[
+                    "open_time",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                    "close_time",
+                    "turnover",
+                    "a2",
+                    "a3",
+                    "a4",
+                    "a5",
+                ],
+            )
+            df = df[["open_time", "open", "high", "low", "close", "volume", "turnover"]]
+            df.set_index("open_time", inplace=True)
+            df.index = pd.to_datetime(
+                df.index, unit="ms"
+            )  # + pd.Timedelta(hours=8) # use the utc time.
 
             symbol = request.params.get("symbol", "").lower()
-            interval = Interval(request.params.get('interval'))
+            interval = Interval(request.params.get("interval"))
             kline_data = OriginalKlineData(
                 symbol=symbol,
                 exchange="BINANCE",
                 interval=interval,
                 klines=datas,
-                kline_df=df
+                kline_df=df,
             )
 
             self.gateway.on_kline(kline_data)
@@ -897,29 +901,33 @@ class BinanceSpotRestAPi(RestClient):
                 "symbol": req.symbol.upper(),
                 "interval": INTERVAL_VT2BINANCE[req.interval],
                 "limit": limit,
-                "startTime": start_time * 1000,  # convert the start time into milliseconds
+                "startTime": start_time
+                * 1000,  # convert the start time into milliseconds
             }
 
             if req.end:
                 end_time: int = int(datetime.timestamp(req.end))
-                params["endTime"] = end_time * 1000  # convert the start time into milliseconds
+                params["endTime"] = (
+                    end_time * 1000
+                )  # convert the start time into milliseconds
 
             resp: Response = self.request(
-                "GET",
-                "/api/v3/klines",
-                data={"security": Security.NONE},
-                params=params
+                "GET", "/api/v3/klines", data={"security": Security.NONE}, params=params
             )
 
             # continue to query the data until failed
             if resp.status_code // 100 != 2:
-                msg: str = f"query historical kline data failed，status code：{resp.status_code}，msg：{resp.text}"
+                msg: str = (
+                    f"query historical kline data failed，status code：{resp.status_code}，msg：{resp.text}"
+                )
                 self.gateway.write_log(msg)
                 break
             else:
                 data: dict = resp.json()
                 if not data:
-                    msg: str = f"historical kline data is empty ，start time：{start_time}"
+                    msg: str = (
+                        f"historical kline data is empty ，start time：{start_time}"
+                    )
                     self.gateway.write_log(msg)
                     break
 
@@ -937,7 +945,7 @@ class BinanceSpotRestAPi(RestClient):
                         high_price=float(row[2]),
                         low_price=float(row[3]),
                         close_price=float(row[4]),
-                        gateway_name=self.gateway_name
+                        gateway_name=self.gateway_name,
                     )
                     buf.append(bar)
 
@@ -945,7 +953,9 @@ class BinanceSpotRestAPi(RestClient):
 
                 begin: datetime = buf[0].datetime
                 end: datetime = buf[-1].datetime
-                msg: str = f"query historical kline data successfully，{req.symbol} - {req.interval.value}，{begin} - {end}"
+                msg: str = (
+                    f"query historical kline data successfully，{req.symbol} - {req.interval.value}，{begin} - {end}"
+                )
                 self.gateway.write_log(msg)
 
                 # if the data len is less than limit, break the while loop
@@ -964,7 +974,7 @@ class BinanceSpotRestAPi(RestClient):
         try:
             if request and request.response and request.response.text:
                 resp = json.loads(request.response.text)
-                if resp.get('code') == -1021:
+                if resp.get("code") == -1021:
                     self.query_time()
         except Exception:
             pass
@@ -986,7 +996,7 @@ class BinanceSpotTradeWebsocketApi(WebsocketClient):
         self.start()
 
     def on_connected(self) -> None:
-        """trade ws connected """
+        """trade ws connected"""
         self.gateway.write_log("trade ws connected")
 
     def on_packet(self, packet: dict) -> None:
@@ -1003,7 +1013,7 @@ class BinanceSpotTradeWebsocketApi(WebsocketClient):
                 accountid=d["a"],
                 balance=float(d["f"]) + float(d["l"]),
                 frozen=float(d["l"]),
-                gateway_name=self.gateway_name
+                gateway_name=self.gateway_name,
             )
 
             self.gateway.on_account(account)
@@ -1036,10 +1046,11 @@ class BinanceSpotTradeWebsocketApi(WebsocketClient):
             traded_price=traded_price,
             status=STATUS_BINANCE2VT.get(packet["X"], Status.NOTTRADED),
             datetime=generate_datetime(packet["O"]),
-            gateway_name=self.gateway_name
+            gateway_name=self.gateway_name,
         )
 
         self.gateway.on_order(order)
+
 
 class BinanceSpotDataWebsocketApi(WebsocketClient):
     """Binance spot market data ws"""
@@ -1063,20 +1074,16 @@ class BinanceSpotDataWebsocketApi(WebsocketClient):
 
     def on_connected(self) -> None:
         """data ws connected"""
-        #self.gateway.write_log("data ws connected")
+        # self.gateway.write_log("data ws connected")
 
         # re-subscribe data.
         if self.ticks:
             channels = []
             for symbol in self.ticks.keys():
                 channels.append(f"{symbol}@ticker")
-                channels.append(f"{symbol}@depth5")
+                channels.append(f"{symbol}@depth5@100ms")
 
-            req: dict = {
-                "method": "SUBSCRIBE",
-                "params": channels,
-                "id": self.reqid
-            }
+            req: dict = {"method": "SUBSCRIBE", "params": channels, "id": self.reqid}
             self.send_packet(req)
 
     def subscribe(self, req: SubscribeRequest) -> None:
@@ -1100,16 +1107,28 @@ class BinanceSpotDataWebsocketApi(WebsocketClient):
         )
         self.ticks[req.symbol] = tick
 
+        channels = [f"{req.symbol}@ticker", f"{req.symbol}@depth5@100ms"]
+
+        req: dict = {"method": "SUBSCRIBE", "params": channels, "id": self.reqid}
+        self.send_packet(req)
+
+    def unsubscribe(self, req: UnsubcribeRequest) -> None:
+        """unsubscribe data"""
+        if req.symbol.lower() not in self.ticks:
+            return
+
+        if req.symbol not in symbol_contract_map:
+            self.gateway.write_log(f"symbol is not found: {req.symbol}")
+            return
+
+        self.reqid += 1
         channels = [
-            f"{req.symbol}@ticker",
-            f"{req.symbol}@depth5"
+            f"{req.symbol.lower()}@ticker",
+            f"{req.symbol.lower()}@depth5@100ms",
         ]
 
-        req: dict = {
-            "method": "SUBSCRIBE",
-            "params": channels,
-            "id": self.reqid
-        }
+        self.ticks.pop(req.symbol.lower())
+        req: dict = {"method": "UNSUBSCRIBE", "params": channels, "id": self.reqid}
         self.send_packet(req)
 
     def on_packet(self, packet: dict) -> None:
@@ -1118,20 +1137,21 @@ class BinanceSpotDataWebsocketApi(WebsocketClient):
 
         if not stream:
             return
-
         data: dict = packet["data"]
-
-        symbol, channel = stream.split("@")
+        symbol = stream.split("@")[0]
+        channel = stream.split("@")[1]
+        if symbol not in self.ticks:
+            return
         tick: TickData = self.ticks[symbol]
 
         if channel == "ticker":
-            tick.volume = float(data['v'])
-            tick.turnover = float(data['q'])
-            tick.open_price = float(data['o'])
-            tick.high_price = float(data['h'])
-            tick.low_price = float(data['l'])
-            tick.last_price = float(data['c'])
-            tick.datetime = generate_datetime(float(data['E']))
+            tick.volume = float(data["v"])
+            tick.turnover = float(data["q"])
+            tick.open_price = float(data["o"])
+            tick.high_price = float(data["h"])
+            tick.low_price = float(data["l"])
+            tick.last_price = float(data["c"])
+            tick.datetime = generate_datetime(float(data["E"]))
         else:
             bids: list = data["bids"]
             for n in range(min(5, len(bids))):
@@ -1144,6 +1164,20 @@ class BinanceSpotDataWebsocketApi(WebsocketClient):
                 price, volume = asks[n]
                 tick.__setattr__("ask_price_" + str(n + 1), float(price))
                 tick.__setattr__("ask_volume_" + str(n + 1), float(volume))
+
+            # custom update, no datetime update
+            # tick.datetime = generate_datetime(float(data["E"]))
+            last_price = Decimal(
+                (
+                    tick.ask_price_1 * tick.ask_volume_1
+                    + tick.bid_price_1 * tick.bid_volume_1
+                )
+                / (tick.ask_volume_1 + tick.bid_volume_1)
+            )
+            precision = (
+                Decimal(10) ** Decimal(str(tick.ask_price_1)).as_tuple().exponent
+            )
+            tick.last_price = float(last_price.quantize(precision))
 
         if tick.last_price:
             tick.localtime = datetime.now()

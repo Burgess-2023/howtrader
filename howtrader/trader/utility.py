@@ -216,7 +216,7 @@ class BarGenerator:
         new_minute: bool = False
 
         # Filter tick data with 0 last price
-        if not tick.last_price:
+        if not tick.last_price or not tick.volume:
             return
 
         # Filter tick data with older timestamp
