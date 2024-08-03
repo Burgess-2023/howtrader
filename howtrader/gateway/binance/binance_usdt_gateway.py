@@ -931,8 +931,8 @@ class BinanceUsdtRestApi(RestClient):
         if request.extra:
             order: OrderData = copy(request.extra)
             orderid = order.orderid
-            # order.status = Status.REJECTED
-            # self.gateway.on_order(copy(order))
+            order.status = Status.REJECTED
+            self.gateway.on_order(copy(order))
             req: OrderQueryRequest = order.create_query_request()
             self.query_order(req)
 
@@ -1079,7 +1079,7 @@ class BinanceUsdtRestApi(RestClient):
                 msg: str = (
                     f"query historical kline data failed, status code：{resp.status_code}，msg：{resp.text}"
                 )
-                self.gateway.write_log(msg)
+                # self.gateway.write_log(msg)
                 break
             else:
                 data: dict = resp.json()
@@ -1116,7 +1116,7 @@ class BinanceUsdtRestApi(RestClient):
                     f"query historical kline data successfully, "
                     f"{req.symbol} - {req.interval.value}，{begin} - {end}"
                 )
-                self.gateway.write_log(msg)
+                #self.gateway.write_log(msg)
 
                 # if the data len is less than limit, break the while loop
                 if len(data) < limit:

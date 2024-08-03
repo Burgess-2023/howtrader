@@ -920,7 +920,7 @@ class BinanceSpotRestAPi(RestClient):
                 msg: str = (
                     f"query historical kline data failed，status code：{resp.status_code}，msg：{resp.text}"
                 )
-                self.gateway.write_log(msg)
+                # self.gateway.write_log(msg)
                 break
             else:
                 data: dict = resp.json()
@@ -956,7 +956,7 @@ class BinanceSpotRestAPi(RestClient):
                 msg: str = (
                     f"query historical kline data successfully，{req.symbol} - {req.interval.value}，{begin} - {end}"
                 )
-                self.gateway.write_log(msg)
+                # self.gateway.write_log(msg)
 
                 # if the data len is less than limit, break the while loop
                 if len(data) < limit:
