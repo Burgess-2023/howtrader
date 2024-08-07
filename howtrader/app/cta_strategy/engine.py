@@ -140,7 +140,7 @@ class CtaEngine(BaseEngine):
         self.event_engine.register(EVENT_TRADE, self.process_trade_event)
         self.event_engine.register(EVENT_POSITION, self.process_position_event)
         self.event_engine.register(EVENT_RPC_SIGNAL, self.process_rpc_signal)
-        # self.event_engine.register(EVENT_ORIGINAL_KLINE, self.process_kline_event)
+        self.event_engine.register(EVENT_ORIGINAL_KLINE, self.process_kline_event)
 
     def process_contract_event(self, event: Event) -> None:
         """"""

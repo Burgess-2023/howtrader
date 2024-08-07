@@ -13,7 +13,7 @@ from .event import (
     EVENT_LOG,
     EVENT_QUOTE,
     EVENT_ORIGINAL_KLINE,
-    EVENT_FUNDING_RATE_DATA
+    EVENT_FUNDING_RATE_DATA,
 )
 from .object import (
     TickData,
@@ -33,7 +33,7 @@ from .object import (
     Exchange,
     BarData,
     OriginalKlineData,
-    FundingRateData
+    FundingRateData,
 )
 
 
@@ -135,7 +135,7 @@ class BaseGateway(ABC):
         self.on_event(EVENT_ACCOUNT + account.vt_accountid, account)
 
     def on_kline(self, kline: OriginalKlineData):
-        # self.on_event(EVENT_ORIGINAL_KLINE, kline)
+        self.on_event(EVENT_ORIGINAL_KLINE, kline)
         self.on_event(EVENT_ORIGINAL_KLINE + kline.vt_symbol, kline)
 
     def on_quote(self, quote: QuoteData) -> None:
@@ -313,7 +313,7 @@ class LocalOrderManager:
         # For generating local orderid
         self.order_prefix: str = order_prefix
         self.order_count: int = 0
-        self.orders: Dict[str, OrderData] = {}        # local_orderid: order
+        self.orders: Dict[str, OrderData] = {}  # local_orderid: order
 
         # Map between local and system orderid
         self.local_sys_orderid_map: Dict[str, str] = {}
@@ -326,7 +326,7 @@ class LocalOrderManager:
         self.push_data_callback: Callable = None
 
         # Cancel request buf
-        self.cancel_request_buf: Dict[str, CancelRequest] = {}    # local_orderid: req
+        self.cancel_request_buf: Dict[str, CancelRequest] = {}  # local_orderid: req
 
         # Hook cancel order function
         self._cancel_order: Callable = gateway.cancel_order

@@ -1116,7 +1116,7 @@ class BinanceUsdtRestApi(RestClient):
                     f"query historical kline data successfully, "
                     f"{req.symbol} - {req.interval.value}，{begin} - {end}"
                 )
-                #self.gateway.write_log(msg)
+                # self.gateway.write_log(msg)
 
                 # if the data len is less than limit, break the while loop
                 if len(data) < limit:
@@ -1341,7 +1341,7 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
             tick.last_price = float(data["c"])
             tick.datetime = generate_datetime(float(data["E"]))
 
-        else:
+        elif channel == "depth5":
             bids: list = data["b"]
             for n in range(min(5, len(bids))):
                 price, volume = bids[n]
