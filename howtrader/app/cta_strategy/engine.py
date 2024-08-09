@@ -1098,10 +1098,11 @@ class CtaEngine(BaseEngine):
             if strategy not in strategies:
                 strategies.append(strategy)
             else:
-                self.write_log(
-                    f"strategy {strategy.strategy_name} already subscribed {vt_symbol}",
-                    strategy,
-                )
+                pass
+                # self.write_log(
+                #    f"strategy {strategy.strategy_name} already subscribed {vt_symbol}",
+                #    strategy,
+                # )
         else:
             self.write_log(
                 f"failed to subscribe market data, symbol not found: {vt_symbol}",
