@@ -427,6 +427,8 @@ class BinanceSpotRestAPi(RestClient):
             self.gateway.write_log(msg)
         else:
             data: dict = resp.json()
+            for item in data:
+                item["symbol"] = item["symbol"].lower()
             return data
 
     def query_contract(self) -> None:
@@ -880,11 +882,12 @@ class BinanceSpotRestAPi(RestClient):
             symbol = request.params.get("symbol", "").lower()
             interval = Interval(request.params.get("interval"))
             kline_data = OriginalKlineData(
-                symbol=symbol,
-                exchange="BINANCE",
+                symbol=symbol.lower(),
+                exchange=Exchange.BINANCE,
                 interval=interval,
                 klines=datas,
                 kline_df=df,
+                gateway_name=self.gateway_name,
             )
 
             self.gateway.on_kline(kline_data)
