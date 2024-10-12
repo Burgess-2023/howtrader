@@ -330,7 +330,7 @@ class ContekRestApi(contek_RemoteGateway):
                 datetime=(
                     generate_datetime(order_update.exch_update_time)
                     if order_update.exch_update_time != -1
-                    else None
+                    else datetime(year=2020, month=1, day=1)
                 ),
                 update_time=generate_datetime(order_update.local_update_time),
                 gateway_name=self.gateway_name,
