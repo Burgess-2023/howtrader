@@ -96,6 +96,7 @@ class Exchange(Enum):
     BITFINEX = "BITFINEX"
     BINANCE = "BINANCE"
     BYBIT = "BYBIT"  # bybit.com
+    CONTEK = "CONTEK"  # Contek Trading Gateway
 
     # Special Function
     LOCAL = "LOCAL"  # For local generated data

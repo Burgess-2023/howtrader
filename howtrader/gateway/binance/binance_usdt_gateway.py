@@ -481,7 +481,7 @@ class BinanceUsdtRestApi(RestClient):
         """query price ticker"""
 
         data: dict = {"security": Security.NONE}
-        path = "/fapi/v1/ticker/price"
+        path = "/fapi/v2/ticker/price"
         resp: Response = self.request("GET", path=path, data=data)
         if resp.status_code // 100 != 2:
             msg: str = (

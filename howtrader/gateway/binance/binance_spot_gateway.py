@@ -67,6 +67,7 @@ ORDERTYPE_VT2BINANCE: Dict[OrderType, str] = {
     OrderType.LIMIT: "LIMIT",
     OrderType.TAKER: "MARKET",
     OrderType.MAKER: "LIMIT_MAKER",
+    OrderType.STOP: "STOP",
 }
 ORDERTYPE_BINANCE2VT: Dict[str, OrderType] = {
     v: k for k, v in ORDERTYPE_VT2BINANCE.items()

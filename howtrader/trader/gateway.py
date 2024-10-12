@@ -94,6 +94,13 @@ class BaseGateway(ABC):
         event: Event = Event(type, data)
         self.event_engine.put(event)
 
+    def on_priority_event(self, type: str, data: Any = None) -> None:
+        """
+        High priority event push.
+        """
+        event: Event = Event(type, data)
+        self.event_engine.priority_put(event)
+
     def on_tick(self, tick: TickData) -> None:
         """
         Tick event push.
@@ -107,36 +114,36 @@ class BaseGateway(ABC):
         Trade event push.
         Trade event of a specific vt_symbol is also pushed.
         """
-        self.on_event(EVENT_TRADE, trade)
-        self.on_event(EVENT_TRADE + trade.vt_symbol, trade)
+        self.on_priority_event(EVENT_TRADE, trade)
+        self.on_priority_event(EVENT_TRADE + trade.vt_symbol, trade)
 
     def on_order(self, order: OrderData) -> None:
         """
         Order event push.
         Order event of a specific vt_orderid is also pushed.
         """
-        self.on_event(EVENT_ORDER, order)
-        self.on_event(EVENT_ORDER + order.vt_orderid, order)
+        self.on_priority_event(EVENT_ORDER, order)
+        self.on_priority_event(EVENT_ORDER + order.vt_orderid, order)
 
     def on_position(self, position: PositionData) -> None:
         """
         Position event push.
         Position event of a specific vt_symbol is also pushed.
         """
-        self.on_event(EVENT_POSITION, position)
-        self.on_event(EVENT_POSITION + position.vt_symbol, position)
+        self.on_priority_event(EVENT_POSITION, position)
+        self.on_priority_event(EVENT_POSITION + position.vt_symbol, position)
 
     def on_account(self, account: AccountData) -> None:
         """
         Account event push.
         Account event of a specific vt_accountid is also pushed.
         """
-        self.on_event(EVENT_ACCOUNT, account)
-        self.on_event(EVENT_ACCOUNT + account.vt_accountid, account)
+        self.on_priority_event(EVENT_ACCOUNT, account)
+        self.on_priority_event(EVENT_ACCOUNT + account.vt_accountid, account)
 
     def on_kline(self, kline: OriginalKlineData):
-        self.on_event(EVENT_ORIGINAL_KLINE, kline)
-        self.on_event(EVENT_ORIGINAL_KLINE + kline.vt_symbol, kline)
+        self.on_priority_event(EVENT_ORIGINAL_KLINE, kline)
+        self.on_priority_event(EVENT_ORIGINAL_KLINE + kline.vt_symbol, kline)
 
     def on_quote(self, quote: QuoteData) -> None:
         """

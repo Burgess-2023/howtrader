@@ -3,9 +3,11 @@ Event-driven framework of Howtrader framework.
 """
 
 from collections import defaultdict
-from queue import Empty, Queue
+from queue import Empty, PriorityQueue
 from threading import Thread
+import threading
 from time import sleep
+import time
 from typing import Any, Callable, List
 
 EVENT_TIMER = "eTimer"
@@ -43,7 +45,9 @@ class EventEngine:
         interval not specified.
         """
         self._interval: int = interval
-        self._queue: Queue = Queue()
+        self._queue: PriorityQueue = PriorityQueue()
+        self._event_counter = 0
+        self._event_counter_lock = threading.Lock()
         self._active: bool = False
         self._thread: Thread = Thread(target=self._run)
         self._timer: Thread = Thread(target=self._run_timer)
@@ -56,7 +60,8 @@ class EventEngine:
         """
         while self._active:
             try:
-                event: Event = self._queue.get(block=True, timeout=1)
+                temp_event = self._queue.get(block=True, timeout=1)
+                event: Event = temp_event[-1]
                 self._process(event)
             except Empty:
                 pass
@@ -104,7 +109,19 @@ class EventEngine:
         """
         Put an event object into event queue.
         """
-        self._queue.put(event)
+        temp_event = (2, self._event_counter, event)
+        self._queue.put(temp_event)
+        with self._event_counter_lock:
+            self._event_counter += 1
+
+    def priority_put(self, event: Event) -> None:
+        """
+        Put an event object into event queue with a higher priority.
+        """
+        temp_event = (1, self._event_counter, event)
+        self._queue.put(temp_event)
+        with self._event_counter_lock:
+            self._event_counter += 1
 
     def register(self, type: str, handler: HandlerType) -> None:
         """
