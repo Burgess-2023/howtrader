@@ -334,6 +334,7 @@ class LogEngine(BaseEngine):
 
         self.logger: Logger = logging.getLogger("veighna")
         self.logger.setLevel(self.level)
+        self.logger.propagate = False
 
         self.formatter: logging.Formatter = logging.Formatter(
             "%(asctime)s  %(levelname)s: %(message)s"
