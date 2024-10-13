@@ -226,6 +226,7 @@ class ContekRestApi(contek_RemoteGateway):
         self._active = False
         self._loop: Optional[AbstractEventLoop] = None
         self.session: Optional[ClientSession] = None  # timeout=ClientTimeout(total=5)
+        self.orders_offset_map = {}
         self.order_count = 1_000_000
         self.order_count_lock: Lock = Lock()
         self.connect_time = 0
@@ -322,6 +323,7 @@ class ContekRestApi(contek_RemoteGateway):
                 orderid=str(order_update.id),
                 type=ORDERTYPE_CONTEK2VT[order_update.type],
                 direction=DIRECTION_CONTEK2VT[order_update.side],
+                offset=self.orders_offset_map.get(order_update.id, None),
                 price=order_update.price,
                 volume=Decimal(str(order_update.qty)),
                 traded=Decimal(str(order_update.acc_traded_qty)),
@@ -337,6 +339,14 @@ class ContekRestApi(contek_RemoteGateway):
                 rejected_reason=order_update.rejected_code,
             )
             self.gateway.on_order(order)
+
+            # remove the order from the map if the order is filled or cancelled or rejected
+            if STATUS_CONTEK2VT[order_update.status] in [
+                Status.ALLTRADED,
+                Status.CANCELLED,
+                Status.REJECTED,
+            ]:
+                self.orders_offset_map.pop(order_update.id)
 
     def get_order(self, orderid: str) -> OrderData:
         return self.orders.get(orderid, None)
@@ -368,6 +378,7 @@ class ContekRestApi(contek_RemoteGateway):
 
         # create OrderData object
         order: OrderData = req.create_order_data(orderid, self.gateway_name)
+        self.orders_offset_map[int(orderid)] = order.offset
 
         # extract order data
         exch = contek_core.Exchange.binance_futures
