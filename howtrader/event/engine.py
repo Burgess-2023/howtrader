@@ -74,6 +74,7 @@ class EventEngine:
         Then distribute event to those general handlers which listens
         to all types.
         """
+
         if event.type in self._handlers:
             [handler(event) for handler in self._handlers[event.type]]
 
@@ -109,19 +110,19 @@ class EventEngine:
         """
         Put an event object into event queue.
         """
-        temp_event = (2, self._event_counter, event)
-        self._queue.put(temp_event)
         with self._event_counter_lock:
+            temp_event = (2, self._event_counter, event)
             self._event_counter += 1
+        self._queue.put(temp_event)
 
     def priority_put(self, event: Event) -> None:
         """
         Put an event object into event queue with a higher priority.
         """
-        temp_event = (1, self._event_counter, event)
-        self._queue.put(temp_event)
         with self._event_counter_lock:
+            temp_event = (1, self._event_counter, event)
             self._event_counter += 1
+        self._queue.put(temp_event)
 
     def register(self, type: str, handler: HandlerType) -> None:
         """
