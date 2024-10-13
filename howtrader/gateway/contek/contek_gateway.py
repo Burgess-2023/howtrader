@@ -352,7 +352,7 @@ class ContekRestApi(contek_RemoteGateway):
         return self.orders.get(orderid, None)
 
     def query_account(self):
-        method = "get_positions"
+        method = "get_margins"
         callback = self.on_query_account
 
         if self._loop:
@@ -364,8 +364,8 @@ class ContekRestApi(contek_RemoteGateway):
         for asset, balance in data.items():
             account = AccountData(
                 accountid=asset,
-                balance=balance,
-                frozen=0,
+                balance=balance.equity,
+                frozen=balance.equity - balance.free,
                 gateway_name=self.gateway_name,
             )
             self.gateway.on_account(account)
