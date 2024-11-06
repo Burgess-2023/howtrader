@@ -29,6 +29,7 @@ from .object import (
     LogData,
     OrderRequest,
     OrderQueryRequest,
+    OrderbookRequest,
     QuoteData,
     QuoteRequest,
     SubscribeRequest,
@@ -281,6 +282,11 @@ class MainEngine:
         gateway: BaseGateway = self.get_gateway(gateway_name)
         if gateway:
             gateway.query_latest_kline(req)
+
+    def query_orderbook(self, req: OrderbookRequest, gateway_name: str):
+        gateway: BaseGateway = self.get_gateway(gateway_name)
+        if gateway:
+            gateway.query_orderbook(req)
 
     def close(self) -> None:
         """

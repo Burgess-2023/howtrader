@@ -8,12 +8,14 @@ from howtrader.trader.object import (
     ContractData,
     TradeData,
     OriginalKlineData,
+    OrderbookData,
 )
 from howtrader.trader.object import (
     OrderRequest,
     SubscribeRequest,
     UnsubcribeRequest,
     CancelRequest,
+    OrderbookRequest,
 )
 from howtrader.trader.constant import (
     Exchange,
@@ -208,6 +210,9 @@ class ContekGateway(BaseGateway):
 
     def query_latest_kline(self, req: HistoryRequest) -> None:
         self.rest_api.query_latest_kline(req)
+
+    def query_orderbook(self, req: OrderbookRequest):
+        return self.rest_api.query_orderbook(req)
 
     def close(self):
         """close gateway"""
@@ -540,6 +545,45 @@ class ContekRestApi(contek_RemoteGateway):
 
             self.gateway.on_kline(kline_data)
 
+    def query_orderbook(self, req: OrderbookRequest):
+
+        params: dict = {
+            "symbol": req.symbol,
+            "limit": req.limit,
+        }
+        url = "https://fapi.binance.com/fapi/v1/depth"
+        callback = self.on_query_orderbook
+        request = Request(url, params, callback)
+
+        if self._loop:
+            run_coroutine_threadsafe(self._get_response(request), self._loop)
+
+    def on_query_orderbook(self, datas, request: Request):
+        if len(datas) > 0:
+            dt = datas["E"]
+            bids = datas["bids"]
+            asks = datas["asks"]
+            bids_df = pd.DataFrame(bids, columns=["price", "volume"]).astype(float)
+            bids_df["side"] = "bid"
+            asks_df = pd.DataFrame(asks, columns=["price", "volume"]).astype(float)
+            asks_df["side"] = "ask"
+            orderbook_df = pd.concat([bids_df, asks_df], axis=0)
+            orderbook_df["value"] = orderbook_df["price"] * orderbook_df["volume"]
+            orderbook_df = orderbook_df.sort_values("price", ascending=False)
+            orderbook_df.reset_index(drop=True, inplace=True)
+
+            # filled OrderbookData
+            orderbook = OrderbookData(
+                symbol=request.params["symbol"],
+                exchange=Exchange.CONTEK,
+                datetime=generate_datetime(dt),
+                orderbook_df=orderbook_df,
+                bids=bids,
+                asks=asks,
+                gateway_name=self.gateway_name,
+            )
+            self.gateway.on_orderbook(orderbook)
+
 
 class ContekWebsocketApi(contek_Client):
     """Contek Market Data/Trades Client"""
@@ -606,7 +650,7 @@ class ContekWebsocketApi(contek_Client):
         md_types = [
             contek_core.MdType.trade,
             # MdType.quote,
-            # contek_core.MdType.depth5,
+            contek_core.MdType.depth5,
             # MdType.depth10,
             # MdType.depth20,
             # MdType.orderbook,
@@ -694,8 +738,8 @@ class ContekWebsocketApi(contek_Client):
 
         last_price = Decimal(
             (
-                tick.ask_price_1 * tick.ask_volume_1
-                + tick.bid_price_1 * tick.bid_volume_1
+                tick.ask_price_1 * tick.bid_volume_1
+                + tick.bid_price_1 * tick.ask_volume_1
             )
             / (tick.ask_volume_1 + tick.bid_volume_1)
         )

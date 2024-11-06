@@ -327,6 +327,24 @@ class OriginalKlineData(BaseData):
 
 
 @dataclass
+class OrderbookData(BaseData):
+    """
+    Orderbook data contains a list of all bids and asks in the orderbook.
+    """
+
+    symbol: str
+    exchange: Exchange
+    datetime: datetime
+    orderbook_df: pd.DataFrame
+    bids: list
+    asks: list
+
+    def __post_init__(self) -> None:
+        """"""
+        self.vt_symbol: str = f"{self.symbol}.{self.exchange.value}"
+
+
+@dataclass
 class QuoteData(BaseData):
     """
     Quote data contains information for tracking lastest status
@@ -476,6 +494,21 @@ class HistoryRequest:
     end: datetime = None
     interval: Interval = None
     limit: int = 1000
+
+    def __post_init__(self) -> None:
+        """"""
+        self.vt_symbol: str = f"{self.symbol}.{self.exchange.value}"
+
+
+@dataclass
+class OrderbookRequest:
+    """
+    Request sending to specific gateway for querying orderbook data.
+    """
+
+    symbol: str
+    exchange: Exchange
+    limit: int = 500
 
     def __post_init__(self) -> None:
         """"""

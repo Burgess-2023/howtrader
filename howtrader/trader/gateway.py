@@ -14,12 +14,15 @@ from .event import (
     EVENT_QUOTE,
     EVENT_ORIGINAL_KLINE,
     EVENT_FUNDING_RATE_DATA,
+    EVENT_ORDERBOOK,
 )
 from .object import (
     TickData,
     OrderData,
     TradeData,
+    OrderbookData,
     OrderQueryRequest,
+    OrderbookRequest,
     PositionData,
     AccountData,
     ContractData,
@@ -130,20 +133,24 @@ class BaseGateway(ABC):
         Position event push.
         Position event of a specific vt_symbol is also pushed.
         """
-        self.on_priority_event(EVENT_POSITION, position)
-        self.on_priority_event(EVENT_POSITION + position.vt_symbol, position)
+        self.on_event(EVENT_POSITION, position)
+        self.on_event(EVENT_POSITION + position.vt_symbol, position)
 
     def on_account(self, account: AccountData) -> None:
         """
         Account event push.
         Account event of a specific vt_accountid is also pushed.
         """
-        self.on_priority_event(EVENT_ACCOUNT, account)
-        self.on_priority_event(EVENT_ACCOUNT + account.vt_accountid, account)
+        self.on_event(EVENT_ACCOUNT, account)
+        self.on_event(EVENT_ACCOUNT + account.vt_accountid, account)
 
     def on_kline(self, kline: OriginalKlineData):
-        self.on_priority_event(EVENT_ORIGINAL_KLINE, kline)
-        self.on_priority_event(EVENT_ORIGINAL_KLINE + kline.vt_symbol, kline)
+        self.on_event(EVENT_ORIGINAL_KLINE, kline)
+        self.on_event(EVENT_ORIGINAL_KLINE + kline.vt_symbol, kline)
+
+    def on_orderbook(self, orderbook: OrderbookData):
+        self.on_event(EVENT_ORDERBOOK, orderbook)
+        self.on_event(EVENT_ORDERBOOK + orderbook.vt_symbol, orderbook)
 
     def on_quote(self, quote: QuoteData) -> None:
         """
@@ -282,6 +289,12 @@ class BaseGateway(ABC):
     def query_latest_kline(self, req: HistoryRequest) -> None:
         """
         Query account balance.
+        """
+        pass
+
+    def query_orderbook(self, req: OrderbookRequest) -> None:
+        """
+        Query order book.
         """
         pass
 

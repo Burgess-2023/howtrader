@@ -17,12 +17,14 @@ from howtrader.event import Event, EventEngine
 from howtrader.trader.engine import BaseEngine, MainEngine
 from howtrader.trader.object import (
     OrderRequest,
+    OrderbookRequest,
     OrderQueryRequest,
     SubscribeRequest,
     UnsubcribeRequest,
     HistoryRequest,
     CancelRequest,
     LogData,
+    OrderbookData,
     TickData,
     BarData,
     OrderData,
@@ -38,6 +40,7 @@ from howtrader.trader.event import (
     EVENT_TRADE,
     EVENT_POSITION,
     EVENT_ORIGINAL_KLINE,
+    EVENT_ORDERBOOK,
 )
 
 EVENT_RPC_SIGNAL = "eRpcSignal"
@@ -141,6 +144,7 @@ class CtaEngine(BaseEngine):
         self.event_engine.register(EVENT_POSITION, self.process_position_event)
         self.event_engine.register(EVENT_RPC_SIGNAL, self.process_rpc_signal)
         self.event_engine.register(EVENT_ORIGINAL_KLINE, self.process_kline_event)
+        self.event_engine.register(EVENT_ORDERBOOK, self.process_orderbook_event)
 
     def process_contract_event(self, event: Event) -> None:
         """"""
@@ -256,6 +260,17 @@ class CtaEngine(BaseEngine):
         for strategy in strategies:
             if strategy.inited:
                 self.call_strategy_func(strategy, strategy.on_kline, kline)
+
+    def process_orderbook_event(self, event: Event) -> None:
+        orderbook: OrderbookData = event.data
+
+        strategies: list = self.symbol_strategy_map[orderbook.vt_symbol]
+        if not strategies:
+            return
+
+        for strategy in strategies:
+            if strategy.inited:
+                self.call_strategy_func(strategy, strategy.on_orderbook, orderbook)
 
     def check_stop_order(self, tick: TickData) -> None:
         """"""
@@ -672,6 +687,23 @@ class CtaEngine(BaseEngine):
         )
 
         self.main_engine.query_latest_kline(req, contract.gateway_name)
+
+    def query_orderbook(self, vt_symbol: str, limit: int = 500) -> None:
+        symbol, exchange = extract_vt_symbol(vt_symbol)
+        contract: Optional[ContractData] = self.main_engine.get_contract(vt_symbol)
+        if not contract:
+            self.write_log(
+                f"contract is not found, pls check your vt_symbol: {vt_symbol}"
+            )
+            return
+        if not contract.history_data:
+            self.write_log(f"the contract is not support querying orderbook data")
+            return
+
+        req: OrderbookRequest = OrderbookRequest(
+            symbol=symbol, exchange=exchange, limit=limit
+        )
+        self.main_engine.query_orderbook(req, contract.gateway_name)
 
     def load_tick(
         self,

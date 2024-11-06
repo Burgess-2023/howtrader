@@ -36,6 +36,7 @@ from howtrader.trader.object import (
     Offset,
     AccountData,
     OrderQueryRequest,
+    OrderbookRequest,
     ContractData,
     PositionData,
     BarData,
@@ -45,6 +46,7 @@ from howtrader.trader.object import (
     UnsubcribeRequest,
     HistoryRequest,
     OriginalKlineData,
+    OrderbookData,
     FundingRateData,
 )
 from howtrader.trader.event import EVENT_TIMER
@@ -231,6 +233,9 @@ class BinanceUsdtGateway(BaseGateway):
 
     def query_priceticker(self):
         return self.rest_api.query_priceticker()
+
+    def query_orderbook(self, req: OrderbookRequest):
+        return self.rest_api.query_orderbook(req)
 
     def close(self) -> None:
         """close api connection"""
@@ -535,12 +540,11 @@ class BinanceUsdtRestApi(RestClient):
             params["price"] = req.price
 
             order_params = json.loads(os.environ[req.vt_symbol])
-
+            del os.environ[req.vt_symbol]
             if req.direction == Direction.LONG:
                 params["stopPrice"] = Decimal(str(order_params["stop_buy_price"]))
             elif req.direction == Direction.SHORT:
                 params["stopPrice"] = Decimal(str(order_params["stop_sell_price"]))
-
         else:
             order_type, time_condition = ORDERTYPE_VT2BINANCES[req.type]
             params["type"] = order_type
@@ -985,6 +989,47 @@ class BinanceUsdtRestApi(RestClient):
         if not issubclass(exception_type, TimeoutError):
             self.on_error(exception_type, exception_value, tb, request)
 
+    def query_orderbook(self, req: OrderbookRequest):
+
+        params: dict = {
+            "symbol": req.symbol,
+            "limit": req.limit,
+        }
+
+        self.add_request(
+            method="GET",
+            path="/fapi/v1/depth",
+            callback=self.on_query_orderbook,
+            params=params,
+            data={"security": Security.NONE},
+        )
+
+    def on_query_orderbook(self, datas, request: Request):
+        if len(datas) > 0:
+            dt = datas["E"]
+            bids = datas["bids"]
+            asks = datas["asks"]
+            bids_df = pd.DataFrame(bids, columns=["price", "volume"]).astype(float)
+            bids_df["side"] = "bid"
+            asks_df = pd.DataFrame(asks, columns=["price", "volume"]).astype(float)
+            asks_df["side"] = "ask"
+            orderbook_df = pd.concat([bids_df, asks_df], axis=0)
+            orderbook_df["value"] = orderbook_df["price"] * orderbook_df["volume"]
+            orderbook_df = orderbook_df.sort_values("price", ascending=False)
+            orderbook_df.reset_index(drop=True, inplace=True)
+
+            # filled OrderbookData
+            orderbook = OrderbookData(
+                symbol=request.params["symbol"],
+                exchange=Exchange.BINANCE,
+                datetime=generate_datetime(dt),
+                orderbook_df=orderbook_df,
+                bids=bids,
+                asks=asks,
+                gateway_name=self.gateway_name,
+            )
+            self.gateway.on_orderbook(orderbook)
+
     def query_latest_kline(self, req: HistoryRequest) -> None:
 
         interval = INTERVAL_VT2BINANCES.get(req.interval, None)
@@ -1358,8 +1403,8 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
             tick.datetime = generate_datetime(float(data["E"]))
             last_price = Decimal(
                 (
-                    tick.ask_price_1 * tick.ask_volume_1
-                    + tick.bid_price_1 * tick.bid_volume_1
+                    tick.ask_price_1 * tick.bid_volume_1
+                    + tick.bid_price_1 * tick.ask_volume_1
                 )
                 / (tick.ask_volume_1 + tick.bid_volume_1)
             )
