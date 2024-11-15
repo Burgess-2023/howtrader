@@ -199,7 +199,11 @@ class ContekGateway(BaseGateway):
                 )
                 super().on_trade(trade)
 
-            if traded == 0 and order.status == last_order.status:
+            if (
+                traded == 0
+                and order.status == last_order.status
+                and order.type == last_order.type
+            ):
                 return None
 
             self.orders[order.orderid] = order
