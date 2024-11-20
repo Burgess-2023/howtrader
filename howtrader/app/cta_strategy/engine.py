@@ -160,7 +160,7 @@ class CtaEngine(BaseEngine):
             return
 
         for strategy in strategies:
-            if strategy.inited:
+            if strategy.inited and strategy.trading:
                 self.call_strategy_func(strategy, strategy.on_rpc_signal, rpc_signal)
 
     def process_tick_event(self, event: Event) -> None:
@@ -613,6 +613,9 @@ class CtaEngine(BaseEngine):
         :return: AccountData data or None
         """
         return self.main_engine.get_account(vt_accountid)
+
+    def query_position(self, gateway_name: str) -> None:
+        self.main_engine.query_position(gateway_name)
 
     def get_all_contract(self, exchange: Exchange) -> List[ContractData]:
         contracts = self.main_engine.get_all_contracts()

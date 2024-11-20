@@ -7,6 +7,7 @@ from howtrader.trader.object import (
     BarData,
     ContractData,
     TradeData,
+    PositionData,
     OriginalKlineData,
     OrderbookData,
 )
@@ -174,6 +175,10 @@ class ContekGateway(BaseGateway):
     def query_account(self) -> None:
         """query account balance"""
         self.rest_api.query_account()
+
+    def query_position(self) -> None:
+        """query position"""
+        self.rest_api.query_position()
 
     def on_order(self, order: OrderData) -> None:
         last_order: OrderData = self.orders.get(order.orderid, None)
@@ -380,6 +385,31 @@ class ContekRestApi(contek_RemoteGateway):
             self.gateway.on_account(account)
 
         # self.gateway.write_log("account balance query success")
+
+    def query_position(self):
+        method = "get_positions"
+        callback = self.on_query_position
+
+        if self._loop:
+            run_coroutine_threadsafe(
+                self._process_request(method, callback=callback), self._loop
+            )
+
+    def on_query_position(self, data, callback_args=None):
+        "query position callback"
+        for symbol, volume in data.items():
+            position = PositionData(
+                symbol=symbol,
+                exchange=Exchange.CONTEK,
+                direction=Direction.NET,
+                volume=volume,
+                price=0,
+                liquidation_price=0,
+                leverage=0,
+                pnl=0,
+                gateway_name=self.gateway_name,
+            )
+            self.gateway.on_position(position)
 
     def send_order(self, req: OrderRequest) -> str:
         """send/place order"""
