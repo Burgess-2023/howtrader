@@ -339,6 +339,7 @@ class ContekRestApi(contek_RemoteGateway):
                 direction=DIRECTION_CONTEK2VT[order_update.side],
                 offset=self.orders_offset_map.get(order_update.id, None),
                 price=order_update.price,
+                average_price=order_update.vwap,
                 volume=Decimal(str(order_update.qty)),
                 traded=Decimal(str(order_update.acc_traded_qty)),
                 traded_price=Decimal(str(order_update.last_price)),

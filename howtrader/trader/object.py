@@ -132,6 +132,7 @@ class OrderData(BaseData):
     direction: Direction = None
     offset: Offset = Offset.NONE
     price: Decimal = Decimal("0")
+    average_price: Decimal = Decimal("0")
     volume: Decimal = Decimal("0")
     traded: Decimal = Decimal("0")
     traded_price: Decimal = Decimal("0")

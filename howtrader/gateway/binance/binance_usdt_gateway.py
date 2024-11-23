@@ -1267,6 +1267,7 @@ class BinanceUsdtTradeWebsocketApi(WebsocketClient):
             type=order_type,
             direction=DIRECTION_BINANCES2VT[ord_data["S"]],
             price=price,
+            average_price=Decimal(ord_data["ap"]),
             volume=Decimal(ord_data["q"]),
             traded=Decimal(ord_data["z"]),
             traded_price=Decimal(ord_data.get("L", "0")),
