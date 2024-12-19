@@ -144,6 +144,7 @@ class ContekGateway(BaseGateway):
             pub_addr=setting["pub_addr"],
             account=setting["account"],
             exchange=setting["exchange"],
+            instrument_type=setting["instrument_type"],
             curve_server_key=setting["curve_server_key"],
             curve_secret_key=setting["curve_secret_key"],
             curve_public_key=setting["curve_public_key"],
