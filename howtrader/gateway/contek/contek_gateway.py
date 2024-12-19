@@ -39,6 +39,8 @@ from threading import Lock
 from howtrader.event import EventEngine
 from howtrader.trader.constant import LOCAL_TZ
 from threading import Thread
+import traceback
+import sys
 from asyncio import (
     get_running_loop,
     new_event_loop,
@@ -146,8 +148,8 @@ class ContekGateway(BaseGateway):
             curve_secret_key=setting["curve_secret_key"],
             curve_public_key=setting["curve_public_key"],
         )
-
-        self.rest_api = ContekRestApi(self, rest_cfg)
+        proxy = setting.get("proxy", None)
+        self.rest_api = ContekRestApi(self, rest_cfg, proxy)
         self.rest_api.connect()
 
         # init ws client
@@ -231,11 +233,13 @@ class ContekGateway(BaseGateway):
 
 class ContekRestApi(contek_RemoteGateway):
 
-    def __init__(self, gateway: ContekGateway, cfg: contek_GatewayConfig):
+    def __init__(self, gateway: ContekGateway, cfg: contek_GatewayConfig, proxy):
         super().__init__(cfg)
         self.cfg: contek_GatewayConfig = cfg
         self.gateway: ContekGateway = gateway
         self.gateway_name: str = gateway.gateway_name
+        if proxy:
+            self.proxy = proxy
 
         self._active = False
         self._loop: Optional[AbstractEventLoop] = None
@@ -281,6 +285,25 @@ class ContekRestApi(contek_RemoteGateway):
         if self._loop and self._loop.is_running():
             self._loop.stop()
 
+    def on_error(self, exception_type: type, exception_value: Exception, tb) -> None:
+        """raise error"""
+        try:
+            print("WebsocketClient on error" + "-" * 10)
+            print(self.exception_detail(exception_type, exception_value, tb))
+        except Exception:
+            traceback.print_exc()
+
+    def exception_detail(
+        self, exception_type: type, exception_value: Exception, tb
+    ) -> str:
+        """format the exception detail in str"""
+        text = "[{}]: Unhandled WebSocket Error:{}\n".format(
+            datetime.now().isoformat(), exception_type
+        )
+        text += "Exception trace: \n"
+        text += "".join(traceback.format_exception(exception_type, exception_value, tb))
+        return text
+
     def _new_order_id(self) -> int:
         """generate customized order id"""
         with self.order_count_lock:
@@ -293,7 +316,7 @@ class ContekRestApi(contek_RemoteGateway):
                 self.session = ClientSession()
 
             cr: ClientResponse = await self.session.get(
-                request.url, params=request.params
+                request.url, params=request.params, proxy=self.proxy
             )
             text: str = await cr.text()
             data = loads(text)
@@ -304,9 +327,11 @@ class ContekRestApi(contek_RemoteGateway):
                 else:
                     return data
             else:
-                self.gateway.write_log("Error occurd")
+                self.gateway.write_log(f"Error status code {status_code} for {request}")
+
         except Exception as e:
-            self.gateway.write_log(f"Error occurd: {e}")
+            et, ev, tb = sys.exc_info()
+            self.on_error(et, ev, tb)
 
     async def _process_request(
         self, method: str, *args, callback=None, callback_args=None
@@ -316,52 +341,55 @@ class ContekRestApi(contek_RemoteGateway):
 
         if res.is_err():
             self.gateway.write_log(res.err_value)
+            return
 
         data = res.ok_value
+
         if callback:
-            callback(data, callback_args=callback_args)
-
-    async def _request(self, method: str, *args):
-        method = getattr(self, method)
-        res: result.Result = await method(*args)
-
-        if res.is_err():
-            pass
-        return res
+            try:
+                callback(data, callback_args=callback_args)
+            except Exception:
+                et, ev, tb = sys.exc_info()
+                self.on_error(et, ev, tb)
 
     async def on_order_update(self):
         async for order_update in self.sub_order_update():
-            order: OrderData = OrderData(
-                symbol=order_update.exch_symbol,
-                exchange=Exchange.CONTEK,
-                orderid=str(order_update.id),
-                type=ORDERTYPE_CONTEK2VT[order_update.type],
-                direction=DIRECTION_CONTEK2VT[order_update.side],
-                offset=self.orders_offset_map.get(order_update.id, None),
-                price=order_update.price,
-                average_price=order_update.vwap,
-                volume=Decimal(str(order_update.qty)),
-                traded=Decimal(str(order_update.acc_traded_qty)),
-                traded_price=Decimal(str(order_update.last_price)),
-                status=STATUS_CONTEK2VT[order_update.status],
-                datetime=(
-                    generate_datetime(order_update.exch_update_time)
-                    if order_update.exch_update_time != -1
-                    else datetime(year=2020, month=1, day=1)
-                ),
-                update_time=generate_datetime(order_update.local_update_time),
-                gateway_name=self.gateway_name,
-                rejected_reason=order_update.rejected_code,
-            )
-            self.gateway.on_order(order)
+            try:
+                order: OrderData = OrderData(
+                    symbol=order_update.exch_symbol,
+                    exchange=Exchange.CONTEK,
+                    orderid=str(order_update.id),
+                    type=ORDERTYPE_CONTEK2VT[order_update.type],
+                    direction=DIRECTION_CONTEK2VT[order_update.side],
+                    offset=self.orders_offset_map.get(order_update.id, None),
+                    price=order_update.price,
+                    average_price=order_update.vwap,
+                    volume=Decimal(str(order_update.qty)),
+                    traded=Decimal(str(order_update.acc_traded_qty)),
+                    traded_price=Decimal(str(order_update.last_price)),
+                    status=STATUS_CONTEK2VT[order_update.status],
+                    datetime=(
+                        generate_datetime(order_update.exch_update_time)
+                        if order_update.exch_update_time != -1
+                        else datetime(year=2020, month=1, day=1)
+                    ),
+                    update_time=generate_datetime(order_update.local_update_time),
+                    gateway_name=self.gateway_name,
+                    rejected_reason=order_update.rejected_code,
+                )
+                self.gateway.on_order(order)
 
-            # remove the order from the map if the order is filled or cancelled or rejected
-            if STATUS_CONTEK2VT[order_update.status] in [
-                Status.ALLTRADED,
-                Status.CANCELLED,
-                Status.REJECTED,
-            ]:
-                self.orders_offset_map.pop(order_update.id)
+                # remove the order from the map if the order is filled or cancelled or rejected
+                if STATUS_CONTEK2VT[order_update.status] in [
+                    Status.ALLTRADED,
+                    Status.CANCELLED,
+                    Status.REJECTED,
+                ]:
+                    self.orders_offset_map.pop(order_update.id)
+
+            except Exception:
+                et, ev, tb = sys.exc_info()
+                self.on_error(et, ev, tb)
 
     def get_order(self, orderid: str) -> OrderData:
         return self.orders.get(orderid, None)
