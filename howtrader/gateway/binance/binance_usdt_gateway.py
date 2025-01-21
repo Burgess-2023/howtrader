@@ -387,7 +387,6 @@ class BinanceUsdtRestApi(RestClient):
         )
 
         self.init(F_REST_HOST, proxy_host, proxy_port)
-
         self.start()
 
         self.gateway.write_log("start connecting rest api")
@@ -538,9 +537,9 @@ class BinanceUsdtRestApi(RestClient):
             params["type"] = order_type
             params["timeInForce"] = time_condition
             params["price"] = req.price
-
             order_params = json.loads(os.environ[req.vt_symbol])
             del os.environ[req.vt_symbol]
+
             if req.direction == Direction.LONG:
                 params["stopPrice"] = Decimal(str(order_params["stop_buy_price"]))
             elif req.direction == Direction.SHORT:

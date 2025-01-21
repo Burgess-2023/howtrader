@@ -5,6 +5,7 @@ from howtrader.trader.object import (
     OrderData,
     TickData,
     BarData,
+    Offset,
     ContractData,
     TradeData,
     PositionData,
@@ -458,6 +459,8 @@ class ContekRestApi(contek_RemoteGateway):
         # send order to gateway
         if order_type == contek_core.OrderType.stop_limit:
             order_params = json.loads(os.environ[req.vt_symbol])
+            del os.environ[req.vt_symbol]
+
             if direction == contek_core.OrderSide.buy:
                 stop_price = float(order_params["stop_buy_price"])
             elif direction == contek_core.OrderSide.sell:
@@ -472,7 +475,7 @@ class ContekRestApi(contek_RemoteGateway):
                 side=direction,
                 type=order_type,
                 order_id=orderid,
-                reduce_only=False,
+                reduce_only=True if req.offset == Offset.CLOSE else False,
             )
         else:
             req = contek_PlaceOrderReq(
@@ -485,7 +488,7 @@ class ContekRestApi(contek_RemoteGateway):
                 side=direction,
                 type=order_type,
                 order_id=orderid,
-                reduce_only=False,
+                reduce_only=True if req.offset == Offset.CLOSE else False,
             )
         method = "place_order"
 

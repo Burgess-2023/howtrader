@@ -11,7 +11,7 @@ from asyncio import (
     run_coroutine_threadsafe,
     AbstractEventLoop,
     Future,
-    set_event_loop_policy
+    set_event_loop_policy,
 )
 
 from json import loads
@@ -19,8 +19,9 @@ from json import loads
 from aiohttp import ClientSession, ClientResponse
 
 # 在Windows系统上必须使用Selector事件循环，否则可能导致程序崩溃
-if sys.platform == 'win32':  # if platform.system() == 'Windows':
+if sys.platform == "win32":  # if platform.system() == 'Windows':
     from asyncio import WindowsSelectorEventLoopPolicy
+
     set_event_loop_policy(WindowsSelectorEventLoopPolicy())
 
 CALLBACK_TYPE = Callable[[Union[dict, list], "Request"], None]
@@ -126,12 +127,7 @@ class RestClient(object):
         self.loop: Optional[AbstractEventLoop] = None
         self._active = False
 
-    def init(
-        self,
-        url_base: str,
-        proxy_host: str = "",
-        proxy_port: int = 0
-    ) -> None:
+    def init(self, url_base: str, proxy_host: str = "", proxy_port: int = 0) -> None:
         """base url or api end point"""
         self.url_base = url_base
 
@@ -241,9 +237,7 @@ class RestClient(object):
         )
         text += "request:{}\n".format(request)
         text += "Exception trace: \n"
-        text += "".join(
-            traceback.format_exception(exception_type, exception_value, tb)
-        )
+        text += "".join(traceback.format_exception(exception_type, exception_value, tb))
         return text
 
     async def _get_response(self, request: Request) -> Response:
@@ -263,7 +257,7 @@ class RestClient(object):
             headers=request.headers,
             params=request.params,
             data=request.data,
-            proxy=self.proxy
+            proxy=self.proxy,
         )
 
         text: str = await cr.text()
