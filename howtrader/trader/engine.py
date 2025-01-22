@@ -215,6 +215,11 @@ class MainEngine:
         if gateway and hasattr(gateway, "query_order"):
             gateway.query_order(req)
 
+    def query_orders(self, gateway_name: str) -> None:
+        gateway: BaseGateway = self.get_gateway(gateway_name)
+        if gateway and hasattr(gateway, "query_orders"):
+            return gateway.query_orders()
+
     def send_quote(self, req: QuoteRequest, gateway_name: str) -> str:
         """
         Send new quote request to a specific gateway.

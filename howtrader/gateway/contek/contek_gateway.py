@@ -120,6 +120,23 @@ class Request(object):
         self.response = None
 
 
+class ServerRequest(object):
+    def __init__(
+        self,
+        method: str,
+        params: dict = {},
+        return_data: bool = False,
+        callback: str = None,
+        callback_args: str = None,
+    ):
+        self.method = method
+        self.params = params
+        self.return_data = return_data
+        self.callback = callback
+        self.callback_args = callback_args
+        self.response = None
+
+
 class ContekGateway(BaseGateway):
     """
     VN Trader Gateway for Contek.
@@ -179,6 +196,10 @@ class ContekGateway(BaseGateway):
     def query_account(self) -> None:
         """query account balance"""
         self.rest_api.query_account()
+
+    def query_orders(self) -> None:
+        """query orders"""
+        return self.rest_api.query_orders()
 
     def query_position(self) -> None:
         """query position"""
@@ -335,11 +356,10 @@ class ContekRestApi(contek_RemoteGateway):
             et, ev, tb = sys.exc_info()
             self.on_error(et, ev, tb)
 
-    async def _process_request(
-        self, method: str, *args, callback=None, callback_args=None
-    ):
-        method = getattr(self, method)
-        res: result.Result = await method(*args)
+    async def _process_request(self, server_request: ServerRequest):
+
+        method = getattr(self, server_request.method)
+        res: result.Result = await method(**server_request.params)
 
         if res.is_err():
             self.gateway.write_log(res.err_value)
@@ -347,9 +367,14 @@ class ContekRestApi(contek_RemoteGateway):
 
         data = res.ok_value
 
-        if callback:
+        if server_request.return_data:
+            return data
+
+        if server_request.callback:
             try:
-                callback(data, callback_args=callback_args)
+                server_request.callback(
+                    data, callback_args=server_request.callback_args
+                )
             except Exception:
                 et, ev, tb = sys.exc_info()
                 self.on_error(et, ev, tb)
@@ -399,11 +424,52 @@ class ContekRestApi(contek_RemoteGateway):
     def query_account(self):
         method = "get_margins"
         callback = self.on_query_account
+        server_request = ServerRequest(method=method, callback=callback)
 
         if self._loop:
-            run_coroutine_threadsafe(
-                self._process_request(method, callback=callback), self._loop
+            run_coroutine_threadsafe(self._process_request(server_request), self._loop)
+
+    def query_orders(self):
+        method = "get_open_orders"
+        server_request = ServerRequest(method=method, return_data=True)
+
+        if self._loop:
+            fut: Future = run_coroutine_threadsafe(
+                self._process_request(server_request), self._loop
             )
+
+        data = fut.result()
+
+        orders = []
+        for order_update in data:
+            try:
+                order: OrderData = OrderData(
+                    symbol=order_update.exch_symbol,
+                    exchange=Exchange.CONTEK,
+                    orderid=str(order_update.id),
+                    type=ORDERTYPE_CONTEK2VT[order_update.type],
+                    direction=DIRECTION_CONTEK2VT[order_update.side],
+                    offset=self.orders_offset_map.get(order_update.id, None),
+                    price=order_update.price,
+                    average_price=order_update.vwap,
+                    volume=Decimal(str(order_update.qty)),
+                    traded=Decimal(str(order_update.acc_traded_qty)),
+                    traded_price=Decimal(str(order_update.last_price)),
+                    status=STATUS_CONTEK2VT[order_update.status],
+                    datetime=(
+                        generate_datetime(order_update.exch_update_time)
+                        if order_update.exch_update_time != -1
+                        else datetime(year=2020, month=1, day=1)
+                    ),
+                    update_time=generate_datetime(order_update.local_update_time),
+                    gateway_name=self.gateway_name,
+                    rejected_reason=order_update.rejected_code,
+                )
+                orders.append(order)
+            except Exception:
+                et, ev, tb = sys.exc_info()
+                self.on_error(et, ev, tb)
+        return orders
 
     def on_query_account(self, data, callback_args=None):
         for asset, balance in data.items():
@@ -420,11 +486,10 @@ class ContekRestApi(contek_RemoteGateway):
     def query_position(self):
         method = "get_positions"
         callback = self.on_query_position
+        server_request = ServerRequest(method=method, callback=callback)
 
         if self._loop:
-            run_coroutine_threadsafe(
-                self._process_request(method, callback=callback), self._loop
-            )
+            run_coroutine_threadsafe(self._process_request(server_request), self._loop)
 
     def on_query_position(self, data, callback_args=None):
         "query position callback"
@@ -491,10 +556,12 @@ class ContekRestApi(contek_RemoteGateway):
                 reduce_only=True if req.offset == Offset.CLOSE else False,
             )
         method = "place_order"
+        params = {"req": req}
+        server_request = ServerRequest(method=method, params=params)
 
         if self._loop:
             run_coroutine_threadsafe(
-                self._process_request(method, req),
+                self._process_request(server_request),
                 self._loop,
             )
         return order.vt_orderid
@@ -503,17 +570,17 @@ class ContekRestApi(contek_RemoteGateway):
         """cancel order"""
         orderid = int(req.orderid)
         method = "cancel_order"
+        params = {"order_id": orderid}
+        server_request = ServerRequest(method=method, params=params)
         if self._loop:
-            run_coroutine_threadsafe(self._process_request(method, orderid), self._loop)
+            run_coroutine_threadsafe(self._process_request(server_request), self._loop)
 
     def query_contract(self):
         method = "get_symbol_info"
         callback = self.on_query_contract
-
+        server_request = ServerRequest(method=method, callback=callback)
         if self._loop:
-            run_coroutine_threadsafe(
-                self._process_request(method, callback=callback), self._loop
-            )
+            run_coroutine_threadsafe(self._process_request(server_request), self._loop)
 
     def on_query_contract(self, data: dict, callback_args=None):
         """query contract callback"""

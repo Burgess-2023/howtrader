@@ -279,6 +279,12 @@ class BaseGateway(ABC):
         """
         pass
 
+    def query_orders(self) -> None:
+        """
+        Query open orders.
+        """
+        pass
+
     @abstractmethod
     def query_account(self) -> None:
         """

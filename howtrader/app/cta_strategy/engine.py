@@ -605,6 +605,9 @@ class CtaEngine(BaseEngine):
             req: OrderQueryRequest = order.create_query_request()
             self.main_engine.query_order(req, order.gateway_name)
 
+    def query_orders(self, gateway_name: str) -> None:
+        return self.main_engine.query_orders(gateway_name)
+
     def query_account(self, vt_accountid: str) -> Optional[AccountData]:
         """
         get account data

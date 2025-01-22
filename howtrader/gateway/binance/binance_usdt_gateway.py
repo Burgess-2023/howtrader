@@ -209,6 +209,10 @@ class BinanceUsdtGateway(BaseGateway):
         """query order status, you can get the order status in on_order method"""
         self.rest_api.query_order(req)
 
+    def query_orders(self) -> None:
+        """query open orders"""
+        return self.rest_api.query_orders()
+
     def query_account(self) -> None:
         """query account"""
         self.rest_api.query_account()
@@ -396,7 +400,7 @@ class BinanceUsdtRestApi(RestClient):
         self.query_position_side()
         self.query_account()
         self.query_position()
-        self.query_orders()
+        # self.query_orders()
         self.start_user_stream()
 
     def query_time(self) -> None:
@@ -466,10 +470,45 @@ class BinanceUsdtRestApi(RestClient):
         data: dict = {"security": Security.SIGNED}
 
         path: str = "/fapi/v1/openOrders"
+        resp: Response = self.request("GET", path=path, data=data)
+        if resp.status_code // 100 != 2:
+            msg: str = (
+                f"query open orders failed, status code：{resp.status_code}，msg：{resp.text}"
+            )
+            self.gateway.write_log(msg)
+        else:
+            datas: dict = resp.json()
 
-        self.add_request(
-            method="GET", path=path, callback=self.on_query_orders, data=data
-        )
+        orders = []
+        for data in datas:
+            key: Tuple[str, str] = (data["type"], data["timeInForce"])
+            # order_type: OrderType = ORDERTYPE_BINANCES2VT.get(key, None)
+            # if not order_type:
+            #     continue
+            order_type: OrderType = ORDERTYPE_BINANCES2VT.get(key, OrderType.LIMIT)
+
+            traded = Decimal(data.get("executedQty", "0"))
+            traded_price = Decimal(data.get("avgPrice", "0"))
+            price = Decimal(data["price"])
+            if price <= 0 < traded_price:
+                price = traded_price
+
+            order: OrderData = OrderData(
+                orderid=data["clientOrderId"],
+                symbol=data["symbol"],
+                exchange=Exchange.BINANCE,
+                price=price,
+                volume=Decimal(data["origQty"]),
+                traded=traded,
+                traded_price=traded_price,
+                type=order_type,
+                direction=DIRECTION_BINANCES2VT[data["side"]],
+                status=STATUS_BINANCES2VT.get(data["status"], Status.NOTTRADED),
+                datetime=generate_datetime(data.get("time", time.time() * 1000)),
+                gateway_name=self.gateway_name,
+            )
+            orders.append(order)
+        return orders
 
     def query_contract(self) -> None:
         """query contract detail or symbol detail"""
