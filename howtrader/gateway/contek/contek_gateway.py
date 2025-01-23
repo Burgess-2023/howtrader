@@ -89,7 +89,7 @@ INTERVAL_VT2BINANCES: Dict[Interval, str] = {
     Interval.MINUTE: "1m",
     Interval.MINUTE_3: "3m",
     Interval.MINUTE_5: "5m",
-    Interval.MINUTE_15: "15",
+    Interval.MINUTE_15: "15m",
     Interval.MINUTE_30: "30m",
     Interval.HOUR: "1h",
     Interval.HOUR_2: "2h",
