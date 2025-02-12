@@ -251,19 +251,24 @@ class RestClient(object):
         if self.session.closed:
             self.session = ClientSession(trust_env=True)
 
-        cr: ClientResponse = await self.session.request(
-            request.method,
-            url,
-            headers=request.headers,
-            params=request.params,
-            data=request.data,
-            proxy=self.proxy,
-        )
+        try:
+            cr: ClientResponse = await self.session.request(
+                request.method,
+                url,
+                headers=request.headers,
+                params=request.params,
+                data=request.data,
+                proxy=self.proxy,
+            )
 
-        text: str = await cr.text()
-        status_code = cr.status
+            text: str = await cr.text()
+            status_code = cr.status
 
-        request.response = Response(status_code, text)
+            request.response = Response(status_code, text)
+        except Exception as e:
+            print(f"RestClient get response error: {str(e)}")
+            request.response = Response(500, str(e))
+
         return request.response
 
     async def _process_request(self, request: Request) -> None:
