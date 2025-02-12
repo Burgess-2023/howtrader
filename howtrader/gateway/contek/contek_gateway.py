@@ -439,7 +439,8 @@ class ContekRestApi(contek_RemoteGateway):
             )
 
         data = fut.result()
-
+        if not data:
+            return []
         orders = []
         for order_update in data:
             try:
