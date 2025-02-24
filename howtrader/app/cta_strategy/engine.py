@@ -743,9 +743,6 @@ class CtaEngine(BaseEngine):
             else:
                 func()
         except Exception:
-            strategy.trading = False
-            strategy.inited = False
-
             msg: str = (
                 f"raise exception and strategy was stopped: \n{traceback.format_exc()}"
             )
