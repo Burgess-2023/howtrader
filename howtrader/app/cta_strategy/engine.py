@@ -742,10 +742,11 @@ class CtaEngine(BaseEngine):
                 func(params)
             else:
                 func()
-        except Exception:
+        except Exception as e:
             msg: str = (
                 f"raise exception and strategy was stopped: \n{traceback.format_exc()}"
             )
+            strategy.on_exception(e)
             self.write_log(msg, strategy)
 
     def add_strategy(

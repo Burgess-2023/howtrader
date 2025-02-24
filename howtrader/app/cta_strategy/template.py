@@ -3,11 +3,18 @@ from copy import copy
 from typing import Any, Callable, List, Optional
 
 from howtrader.trader.constant import Interval, Direction, Offset
-from howtrader.trader.object import BarData, TickData, OrderData, TradeData, PositionData
+from howtrader.trader.object import (
+    BarData,
+    TickData,
+    OrderData,
+    TradeData,
+    PositionData,
+)
 from howtrader.trader.utility import virtual
 
 from .base import StopOrder, EngineType
 from decimal import Decimal
+
 
 class CtaTemplate(ABC):
     """"""
@@ -113,6 +120,13 @@ class CtaTemplate(ABC):
         pass
 
     @virtual
+    def on_exception(self, exception: Exception) -> None:
+        """
+        Callback of uncaught exception raised.
+        """
+        pass
+
+    @virtual
     def on_tick(self, tick: TickData) -> None:
         """
         Callback of new tick data update.
@@ -155,7 +169,7 @@ class CtaTemplate(ABC):
         stop: bool = False,
         lock: bool = False,
         net: bool = False,
-        maker: bool = False
+        maker: bool = False,
     ) -> list:
         """
         Send buy order to open a long position.
@@ -169,7 +183,7 @@ class CtaTemplate(ABC):
             stop,
             lock,
             net,
-            maker
+            maker,
         )
 
     def sell(
@@ -180,7 +194,7 @@ class CtaTemplate(ABC):
         stop: bool = False,
         lock: bool = False,
         net: bool = False,
-        maker: bool = False
+        maker: bool = False,
     ) -> list:
         """
         Send sell order to close a long position.
@@ -194,7 +208,7 @@ class CtaTemplate(ABC):
             stop,
             lock,
             net,
-            maker
+            maker,
         )
 
     def short(
@@ -205,7 +219,7 @@ class CtaTemplate(ABC):
         stop: bool = False,
         lock: bool = False,
         net: bool = False,
-        maker: bool = False
+        maker: bool = False,
     ) -> list:
         """
         Send short order to open as short position.
@@ -219,7 +233,7 @@ class CtaTemplate(ABC):
             stop,
             lock,
             net,
-            maker
+            maker,
         )
 
     def cover(
@@ -230,7 +244,7 @@ class CtaTemplate(ABC):
         stop: bool = False,
         lock: bool = False,
         net: bool = False,
-        maker: bool = False
+        maker: bool = False,
     ) -> list:
         """
         Send cover order to close a short position.
@@ -244,7 +258,7 @@ class CtaTemplate(ABC):
             stop,
             lock,
             net,
-            maker
+            maker,
         )
 
     def send_order(
@@ -257,14 +271,23 @@ class CtaTemplate(ABC):
         stop: bool = False,
         lock: bool = False,
         net: bool = False,
-        maker: bool = False
+        maker: bool = False,
     ) -> list:
         """
         Send a new order.
         """
         if self.trading:
             vt_orderids: list = self.cta_engine.send_order(
-                self, vt_symbol, direction, offset, price, volume, stop, lock, net, maker
+                self,
+                vt_symbol,
+                direction,
+                offset,
+                price,
+                volume,
+                stop,
+                lock,
+                net,
+                maker,
             )
             return vt_orderids
         else:
@@ -309,7 +332,7 @@ class CtaTemplate(ABC):
     def get_position(self, vt_positionid=None) -> Optional[PositionData]:
         """"""
         if vt_positionid is None:
-            vt_positionid = self.vt_symbol + '.NET'
+            vt_positionid = self.vt_symbol + ".NET"
         return self.cta_engine.get_position(vt_positionid)
 
     def load_bar(
@@ -317,7 +340,7 @@ class CtaTemplate(ABC):
         days: int,
         interval: Interval = Interval.MINUTE,
         callback: Callable = None,
-        use_database: bool = False
+        use_database: bool = False,
     ) -> None:
         """
         Load historical bar data for initializing strategy.
@@ -326,11 +349,7 @@ class CtaTemplate(ABC):
             callback: Callable = self.on_bar
 
         bars: List[BarData] = self.cta_engine.load_bar(
-            self.vt_symbol,
-            days,
-            interval,
-            callback,
-            use_database
+            self.vt_symbol, days, interval, callback, use_database
         )
 
         for bar in bars:
@@ -347,7 +366,9 @@ class CtaTemplate(ABC):
         """
         Load historical tick data for initializing strategy.
         """
-        ticks: List[TickData] = self.cta_engine.load_tick(self.vt_symbol, days, self.on_tick)
+        ticks: List[TickData] = self.cta_engine.load_tick(
+            self.vt_symbol, days, self.on_tick
+        )
 
         for tick in ticks:
             self.on_tick(tick)
@@ -406,11 +427,12 @@ class CtaSignal(ABC):
 
 class TargetPosTemplate(CtaTemplate):
     """"""
+
     tick_add = 1
 
     last_tick: TickData = None
     last_bar: BarData = None
-    target_pos:Decimal = Decimal("0")
+    target_pos: Decimal = Decimal("0")
 
     def __init__(self, cta_engine, strategy_name, vt_symbol, setting) -> None:
         """"""
@@ -519,15 +541,23 @@ class TargetPosTemplate(CtaTemplate):
                     if pos_change < abs(self.pos):
                         vt_orderids: list = self.cover(Decimal(long_price), pos_change)
                     else:
-                        vt_orderids: list = self.cover(Decimal(long_price), abs(self.pos))
+                        vt_orderids: list = self.cover(
+                            Decimal(long_price), abs(self.pos)
+                        )
                 else:
                     vt_orderids: list = self.buy(Decimal(long_price), abs(pos_change))
             else:
                 if self.pos > 0:
                     if abs(pos_change) < self.pos:
-                        vt_orderids: list = self.sell(Decimal(short_price), abs(pos_change))
+                        vt_orderids: list = self.sell(
+                            Decimal(short_price), abs(pos_change)
+                        )
                     else:
-                        vt_orderids: list = self.sell(Decimal(short_price), abs(self.pos))
+                        vt_orderids: list = self.sell(
+                            Decimal(short_price), abs(self.pos)
+                        )
                 else:
-                    vt_orderids: list = self.short(Decimal(short_price), abs(pos_change))
+                    vt_orderids: list = self.short(
+                        Decimal(short_price), abs(pos_change)
+                    )
             self.active_orderids.extend(vt_orderids)
