@@ -494,16 +494,16 @@ class ContekRestApi(contek_RemoteGateway):
 
     def on_query_position(self, data, callback_args=None):
         "query position callback"
-        for symbol, volume in data.items():
+        for symbol, position_item in data.items():
             position = PositionData(
                 symbol=symbol,
                 exchange=Exchange.CONTEK,
                 direction=Direction.NET,
-                volume=volume,
-                price=0,
+                volume=position_item.quantity,
+                price=position_item.price,
                 liquidation_price=0,
-                leverage=0,
-                pnl=0,
+                leverage=position_item.leverage,
+                pnl=position_item.unrealized_pnl,
                 gateway_name=self.gateway_name,
             )
             self.gateway.on_position(position)
