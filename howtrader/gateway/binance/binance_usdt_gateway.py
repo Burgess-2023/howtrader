@@ -72,7 +72,7 @@ STATUS_BINANCES2VT: Dict[str, Status] = {
     "FILLED": Status.ALLTRADED,
     "CANCELED": Status.CANCELLED,
     "REJECTED": Status.REJECTED,
-    "EXPIRED": Status.CANCELLED,
+    "EXPIRED": Status.EXPIRED,
 }
 
 # order type map

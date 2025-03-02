@@ -42,6 +42,7 @@ class Status(Enum):
     ALLTRADED = "ALLTRADED"
     CANCELLED = "CANCELLED"
     REJECTED = "REJECTED"
+    EXPIRED = "EXPIRED"
 
 
 class Product(Enum):
