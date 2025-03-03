@@ -79,6 +79,7 @@ STOP_STATUS_MAP: Dict[Status, StopOrderStatus] = {
     Status.ALLTRADED: StopOrderStatus.TRIGGERED,
     Status.CANCELLED: StopOrderStatus.CANCELLED,
     Status.REJECTED: StopOrderStatus.CANCELLED,
+    Status.EXPIRED: StopOrderStatus.CANCELLED,
 }
 
 LOCAL_TZ = get_localzone()
