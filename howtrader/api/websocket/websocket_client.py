@@ -137,7 +137,7 @@ class WebsocketClient:
         """on disconnected callback"""
         pass
 
-    def on_packet(self, packet: dict):
+    async def on_packet(self, packet: dict):
         """on packed callback"""
         pass
 
@@ -193,7 +193,7 @@ class WebsocketClient:
                     self._record_last_received_text(text)
 
                     data: dict = self.unpack_data(text)
-                    self.on_packet(data)
+                    await self.on_packet(data)
 
                 # remove the _ws object
                 self._ws = None

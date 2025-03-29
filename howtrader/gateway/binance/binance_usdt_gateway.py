@@ -1408,7 +1408,7 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
         req: dict = {"method": "UNSUBSCRIBE", "params": channels, "id": self.reqid}
         self.send_packet(req)
 
-    def on_packet(self, packet: dict) -> None:
+    async def on_packet(self, packet: dict) -> None:
         """received the subscribe data"""
         stream: str = packet.get("stream", None)
 
