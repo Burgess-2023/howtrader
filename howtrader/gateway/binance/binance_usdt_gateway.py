@@ -18,6 +18,7 @@ import pandas as pd
 import numpy as np
 import os
 import json
+import aiofiles
 
 from requests.exceptions import SSLError
 from howtrader.trader.constant import (
@@ -1241,12 +1242,17 @@ class BinanceUsdtTradeWebsocketApi(WebsocketClient):
         """trade ws connected"""
         self.gateway.write_log("trade ws connected")
 
-    def on_packet(self, packet: dict) -> None:
+    async def on_packet(self, packet: dict) -> None:
         """receive data from ws"""
         if packet["e"] == "ACCOUNT_UPDATE":
             self.on_account(packet)
         elif packet["e"] == "ORDER_TRADE_UPDATE":
             self.on_order(packet)
+
+        if not self.output_stream:
+            self.output_stream = await aiofiles.open("BinanceUsdtTradeWs.json", "a")
+
+        await self.output_stream(json.dumps(packet) + "\n")
 
     def on_account(self, packet: dict) -> None:
         """account data update"""
