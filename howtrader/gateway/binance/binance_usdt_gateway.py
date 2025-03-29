@@ -1232,6 +1232,7 @@ class BinanceUsdtTradeWebsocketApi(WebsocketClient):
 
         self.gateway: BinanceUsdtGateway = gateway
         self.gateway_name: str = gateway.gateway_name
+        self.output_stream = None
 
     def connect(self, url: str, proxy_host: str, proxy_port: int) -> None:
         """connect binance usdt/busd future trade ws"""
