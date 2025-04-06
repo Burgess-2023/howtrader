@@ -1249,11 +1249,14 @@ class BinanceUsdtTradeWebsocketApi(WebsocketClient):
             self.on_account(packet)
         elif packet["e"] == "ORDER_TRADE_UPDATE":
             self.on_order(packet)
+            if not self.output_stream:
+                self.output_stream = await aiofiles.open(
+                    "BinanceUsdtTradeWs_v2.json", "a"
+                )
 
-        if not self.output_stream:
-            self.output_stream = await aiofiles.open("BinanceUsdtTradeWs.json", "a")
-
-        await self.output_stream.write(json.dumps(packet) + "\n")
+            await self.output_stream.write(
+                str(datetime.now()) + " " + json.dumps(packet) + "\n"
+            )
 
     def on_account(self, packet: dict) -> None:
         """account data update"""
