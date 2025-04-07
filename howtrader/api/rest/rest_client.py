@@ -266,7 +266,7 @@ class RestClient(object):
 
             request.response = Response(status_code, text)
         except Exception as e:
-            print(f"RestClient get response error: {str(e)}")
+            #print(f"RestClient get response error: {str(e)}")
             request.response = Response(500, str(e))
 
         return request.response

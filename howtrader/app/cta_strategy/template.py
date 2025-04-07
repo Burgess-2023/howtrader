@@ -163,6 +163,13 @@ class CtaTemplate(ABC):
         pass
 
     @virtual
+    def on_rpc_signal(self, signal: dict):
+        """
+        Callback of rpc signal.
+        """
+        pass
+
+    @virtual
     def on_stop_order(self, stop_order: StopOrder) -> None:
         """
         Callback of stop order update.
