@@ -8,6 +8,7 @@ from howtrader.trader.object import (
     TickData,
     OrderData,
     TradeData,
+    OrderbookData,
     PositionData,
 )
 from howtrader.trader.utility import virtual
@@ -151,6 +152,13 @@ class CtaTemplate(ABC):
     def on_order(self, order: OrderData) -> None:
         """
         Callback of new order data update.
+        """
+        pass
+
+    @virtual
+    def on_orderbook(self, orderbook: OrderbookData) -> None:
+        """
+        Callback of new orderbook data update.
         """
         pass
 
