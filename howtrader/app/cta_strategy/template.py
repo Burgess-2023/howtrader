@@ -10,6 +10,7 @@ from howtrader.trader.object import (
     TradeData,
     OrderbookData,
     PositionData,
+    OriginalKlineData,
 )
 from howtrader.trader.utility import virtual
 
@@ -138,6 +139,13 @@ class CtaTemplate(ABC):
     def on_bar(self, bar: BarData) -> None:
         """
         Callback of new bar data update.
+        """
+        pass
+
+    @virtual
+    def on_kline(self, kline: OriginalKlineData):
+        """
+        Callback of new kline data update.
         """
         pass
 
