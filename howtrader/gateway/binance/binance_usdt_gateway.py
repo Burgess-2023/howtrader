@@ -892,7 +892,7 @@ class BinanceUsdtRestApi(RestClient):
             order.traded_price = traded_price
             order.price = price
             order.status = STATUS_BINANCES2VT.get(data.get("status"), Status.NOTTRADED)
-            self.gateway.on_order(order)
+            #self.gateway.on_order(order)
 
     def on_send_order_failed(self, status_code: int, request: Request) -> None:
         """send order failed callback"""
@@ -937,7 +937,7 @@ class BinanceUsdtRestApi(RestClient):
             order.price = price
             order.traded_price = traded_price
             order.status = STATUS_BINANCES2VT.get(data.get("status"), Status.CANCELLED)
-            self.gateway.on_order(order)
+            #self.gateway.on_order(order)
         else:
             key: Tuple[str, str] = (data.get("type"), data.get("timeInForce"))
             order_type: OrderType = ORDERTYPE_BINANCES2VT.get(key, OrderType.LIMIT)
@@ -965,7 +965,7 @@ class BinanceUsdtRestApi(RestClient):
                 ),
                 gateway_name=self.gateway_name,
             )
-            self.gateway.on_order(order)
+            #self.gateway.on_order(order)
 
     def on_cancel_order_failed(self, status_code: int, request: Request) -> None:
         """cancel order failed callback"""
@@ -975,7 +975,7 @@ class BinanceUsdtRestApi(RestClient):
             order: OrderData = copy(request.extra)
             orderid = order.orderid
             order.status = Status.REJECTED
-            self.gateway.on_order(copy(order))
+            #self.gateway.on_order(copy(order))
             req: OrderQueryRequest = order.create_query_request()
             self.query_order(req)
 
