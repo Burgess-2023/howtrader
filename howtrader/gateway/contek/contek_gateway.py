@@ -757,10 +757,26 @@ class ContekWebsocketApi(contek_Client):
 
     async def _run(self):
         """run event loop"""
-        async for md_sub, msg in self.listen():
-            if md_sub.md_type == contek_core.MdType.connection:
-                continue
-            self.on_packet(md_sub, msg)
+
+        try:
+            self.gateway.write_log("trade ws connected")
+            async for md_sub, msg in self.listen():
+                if md_sub.md_type == contek_core.MdType.connection:
+                    continue
+                if isinstance(msg.md, contek_core.Connection):
+                    continue
+                try:
+                    self.on_packet(md_sub, msg)
+                except Exception as e:
+                    self.gateway.write_log(f"on_packet error: {e}")
+                    import traceback
+
+                    traceback.print_exc()
+        except Exception as e:
+            self.gateway.write_log(f"_run exited with error: {e}")
+            import traceback
+
+            traceback.print_exc()
 
     def subscribe_data(self, req: SubscribeRequest) -> None:
         if req.symbol in self.ticks:
@@ -800,6 +816,7 @@ class ContekWebsocketApi(contek_Client):
                     md_type=md_type,
                 )
             )
+            self.gateway.write_log("Subscribed to " + req.symbol + " " + md_type.name)
 
     def unsubscribe_data(self, req: UnsubcribeRequest):
         if req.symbol.lower() not in self.ticks:
@@ -847,13 +864,13 @@ class ContekWebsocketApi(contek_Client):
         tick.turnover = float(msg.md.qty * msg.md.price)
         tick.last_price = float(msg.md.price)
         tick.datetime = generate_datetime(msg.md.exch_ns)
-        tick.localtime = generate_datetime(msg.local_ns)
+        tick.localtime = generate_datetime(msg.md.local_ns)
         self.gateway.on_tick(tick)
 
     def on_depth5(self, md_sub: contek_MdSub, msg: bytes):
         tick: TickData = self.ticks[md_sub.symbol.lower()]
         tick.datetime = generate_datetime(msg.md.exch_ns)
-        tick.localtime = generate_datetime(msg.local_ns)
+        tick.localtime = generate_datetime(msg.md.local_ns)
 
         # filled bids data
         bids = msg.md.bids
@@ -903,3 +920,12 @@ def generate_datetime(timestamp: float) -> datetime:
     dt: datetime = datetime.fromtimestamp(timestamp / (10**9))
     # dt: datetime = LOCAL_TZ.localize(dt)
     return dt
+
+
+if __name__ == "__main__":
+
+    xsub_addr = "tcp://exp2.canary.tyo.aws:10009"
+    sub_addr = "tcp://exp2.canary.tyo.aws:10010"
+    ws_config = contek_ClientConfig(xsub_addr=xsub_addr, sub_addr=sub_addr)
+    ws_client = ContekWebsocketApi(ws_config)
+    ws_client.connect()
