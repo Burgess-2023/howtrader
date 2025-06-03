@@ -261,8 +261,7 @@ class ContekRestApi(contek_RemoteGateway):
         self.cfg: contek_GatewayConfig = cfg
         self.gateway: ContekGateway = gateway
         self.gateway_name: str = gateway.gateway_name
-        if proxy:
-            self.proxy = proxy
+        self.proxy = proxy
 
         self._active = False
         self._loop: Optional[AbstractEventLoop] = None
@@ -808,14 +807,18 @@ class ContekWebsocketApi(contek_Client):
         ]
 
         for md_type in md_types:
-            self.subscribe(
-                contek_MdSub(
-                    exchange=contek_core.Exchange.binance_futures,
-                    ins_type=contek_core.InstrumentType.linear,
-                    symbol=req.symbol,
-                    md_type=md_type,
-                )
+            run_coroutine_threadsafe(
+                self.subscribe(
+                    contek_MdSub(
+                        exchange=contek_core.Exchange.binance_futures,
+                        ins_type=contek_core.InstrumentType.linear,
+                        symbol=req.symbol,
+                        md_type=md_type,
+                    )
+                ),
+                self._loop,
             )
+
             self.gateway.write_log("Subscribed to " + req.symbol + " " + md_type.name)
 
     def unsubscribe_data(self, req: UnsubcribeRequest):
