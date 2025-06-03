@@ -842,13 +842,16 @@ class ContekWebsocketApi(contek_Client):
         ]
 
         for md_type in md_types:
-            self.unsubscribe(
-                contek_MdSub(
-                    exchange=contek_core.Exchange.binance_futures,
-                    ins_type=contek_core.InstrumentType.linear,
-                    symbol=req.symbol,
-                    md_type=md_type,
-                )
+            run_coroutine_threadsafe(
+                self.unsubscribe(
+                    contek_MdSub(
+                        exchange=contek_core.Exchange.binance_futures,
+                        ins_type=contek_core.InstrumentType.linear,
+                        symbol=req.symbol,
+                        md_type=md_type,
+                    )
+                ),
+                self._loop,
             )
 
     def on_packet(self, md_sub: contek_MdSub, msg: bytes):
