@@ -63,8 +63,11 @@ class EventEngine:
                 temp_event = self._queue.get(block=True, timeout=1)
                 event: Event = temp_event[-1]
                 self._process(event)
-            except Empty:
-                pass
+            except Exception as e:
+                import traceback
+
+                print(f"[EventEngine] Unexpected error: {e}")
+                traceback.print_exc()
 
     def _process(self, event: Event) -> None:
         """
