@@ -554,6 +554,8 @@ class BinanceUsdtRestApi(RestClient):
     def send_order(self, req: OrderRequest) -> str:
         """send/place order"""
         orderid: str = "x-cLbi5uMH" + str(self.connect_time + self._new_order_id())
+        if req.type == OrderType.STOP:
+            orderid = "ALGO-" + orderid
 
         # create OrderData object
         order: OrderData = req.create_order_data(orderid, self.gateway_name)
@@ -566,14 +568,16 @@ class BinanceUsdtRestApi(RestClient):
             "symbol": req.symbol,
             "side": DIRECTION_VT2BINANCES[req.direction],
             "quantity": req.volume,
-            "newClientOrderId": orderid,
-            "newOrderRespType": "RESULT",
         }
 
+        path: str = "/fapi/v1/order"
         if req.type == OrderType.TAKER:
             params["type"] = "MARKET"
+            params["newClientOrderId"] = orderid
+            params["newOrderRespType"] = "RESULT"
         elif req.type == OrderType.STOP:
             order_type, time_condition = ORDERTYPE_VT2BINANCES[req.type]
+            params["clientAlgoId"] = orderid
             params["type"] = order_type
             params["timeInForce"] = time_condition
             params["price"] = req.price
@@ -581,19 +585,20 @@ class BinanceUsdtRestApi(RestClient):
             del os.environ[req.vt_symbol]
 
             if req.direction == Direction.LONG:
-                params["stopPrice"] = Decimal(str(order_params["stop_buy_price"]))
+                params["triggerPrice"] = Decimal(str(order_params["stop_buy_price"]))
             elif req.direction == Direction.SHORT:
-                params["stopPrice"] = Decimal(str(order_params["stop_sell_price"]))
+                params["triggerPrice"] = Decimal(str(order_params["stop_sell_price"]))
+            path: str = "/fapi/v1/algoOrder"
         else:
             order_type, time_condition = ORDERTYPE_VT2BINANCES[req.type]
             params["type"] = order_type
             params["timeInForce"] = time_condition
             params["price"] = req.price
+            params["newClientOrderId"] = orderid
+            params["newOrderRespType"] = "RESULT"
 
         if req.offset == Offset.CLOSE:
             params["reduceOnly"] = True
-
-        path: str = "/fapi/v1/order"
 
         self.add_request(
             method="POST",
@@ -612,11 +617,17 @@ class BinanceUsdtRestApi(RestClient):
         """cancel order"""
         data: dict = {"security": Security.SIGNED}
 
-        params: dict = {"symbol": req.symbol, "origClientOrderId": req.orderid}
+        if req.orderid.startswith("ALGO-"):
+            params: dict = {
+                "symbol": req.symbol,
+                "clientalgoid": req.orderid,
+            }
+            path: str = "/fapi/v1/algoOrder"
 
-        path: str = "/fapi/v1/order"
-
-        order: OrderData = self.gateway.get_order(req.orderid)
+        else:
+            params: dict = {"symbol": req.symbol, "origClientOrderId": req.orderid}
+            path: str = "/fapi/v1/order"
+            order: OrderData = self.gateway.get_order(req.orderid)
 
         self.add_request(
             method="DELETE",
@@ -880,6 +891,9 @@ class BinanceUsdtRestApi(RestClient):
 
     def on_send_order(self, data: dict, request: Request) -> None:
         """send order callback"""
+        pass
+
+        """
         if request.extra:
             order: OrderData = copy(request.extra)
             traded = Decimal(data.get("executedQty", "0"))
@@ -893,6 +907,7 @@ class BinanceUsdtRestApi(RestClient):
             order.price = price
             order.status = STATUS_BINANCES2VT.get(data.get("status"), Status.NOTTRADED)
             # self.gateway.on_order(order)
+        """
 
     def on_send_order_failed(self, status_code: int, request: Request) -> None:
         """send order failed callback"""
@@ -925,6 +940,8 @@ class BinanceUsdtRestApi(RestClient):
 
     def on_cancel_order(self, data: dict, request: Request) -> None:
         """cancel order callback"""
+        pass
+        """
         if request.extra:
             order: OrderData = copy(request.extra)
             traded = Decimal(data.get("executedQty", "0"))
@@ -966,17 +983,19 @@ class BinanceUsdtRestApi(RestClient):
                 gateway_name=self.gateway_name,
             )
             # self.gateway.on_order(order)
+        """
 
     def on_cancel_order_failed(self, status_code: int, request: Request) -> None:
         """cancel order failed callback"""
         self.failed_with_timestamp(request)
+
         orderid = ""
         if request.extra:
             order: OrderData = copy(request.extra)
             orderid = order.orderid
-            order.status = Status.REJECTED
+            # order.status = Status.REJECTED
             # self.gateway.on_order(copy(order))
-            req: OrderQueryRequest = order.create_query_request()
+            # req: OrderQueryRequest = order.create_query_request()
             # self.query_order(req)
 
         msg = f"cancel order failed, orderid: {orderid}, status code：{status_code}, msg：{request.response.text}"
@@ -1325,6 +1344,9 @@ class BinanceUsdtTradeWebsocketApi(WebsocketClient):
         )
 
         self.gateway.on_order(order)
+
+    def on_algo_order(self, packet: dict):
+        print(packet)
 
 
 class BinanceUsdtDataWebsocketApi(WebsocketClient):
