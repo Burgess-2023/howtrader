@@ -624,6 +624,7 @@ class BinanceUsdtRestApi(RestClient):
                 "clientalgoid": req.orderid,
             }
             path: str = "/fapi/v1/algoOrder"
+            order: OrderData = self.gateway.get_order(req.orderid)
 
         else:
             params: dict = {"symbol": req.symbol, "origClientOrderId": req.orderid}
