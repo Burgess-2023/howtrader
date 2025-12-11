@@ -577,6 +577,7 @@ class BinanceUsdtRestApi(RestClient):
             params["newOrderRespType"] = "RESULT"
         elif req.type == OrderType.STOP:
             order_type, time_condition = ORDERTYPE_VT2BINANCES[req.type]
+            params["algoType"] = "CONDITIONAL"
             params["clientAlgoId"] = orderid
             params["type"] = order_type
             params["timeInForce"] = time_condition
@@ -1276,6 +1277,8 @@ class BinanceUsdtTradeWebsocketApi(WebsocketClient):
             await self.output_stream.write(
                 str(datetime.now()) + " " + json.dumps(packet) + "\n"
             )
+        elif packet["e"] == "ALGO_UPDATE":
+            self.on_algo_order(packet)
 
     def on_account(self, packet: dict) -> None:
         """account data update"""
@@ -1346,7 +1349,32 @@ class BinanceUsdtTradeWebsocketApi(WebsocketClient):
         self.gateway.on_order(order)
 
     def on_algo_order(self, packet: dict):
-        print(packet)
+        ord_data: dict = packet["o"]
+        if ord_data["X"] in ["TRIGGERING", "TRIGGERED", "FINISHED"]:
+            return
+        key: Tuple[str, str] = (ord_data["o"], ord_data["f"])
+        order_type: OrderType = ORDERTYPE_BINANCES2VT.get(key, OrderType.LIMIT)
+        price = Decimal(ord_data["p"])
+        if price <= 0:
+            price = Decimal(ord_data["ap"])
+
+        order: OrderData = OrderData(
+            symbol=ord_data["s"],
+            exchange=Exchange.BINANCE,
+            orderid=str(ord_data["caid"]),
+            type=order_type,
+            direction=DIRECTION_BINANCES2VT[ord_data["S"]],
+            price=price,
+            average_price=Decimal("0"),
+            volume=Decimal(ord_data["q"]),
+            traded=Decimal(ord_data["aq"]) if "aq" in ord_data else Decimal("0"),
+            traded_price=Decimal("0"),
+            status=STATUS_BINANCES2VT.get(ord_data["X"], Status.NOTTRADED),
+            datetime=generate_datetime(packet["E"]),
+            gateway_name=self.gateway_name,
+        )
+
+        self.gateway.on_order(order)
 
 
 class BinanceUsdtDataWebsocketApi(WebsocketClient):
