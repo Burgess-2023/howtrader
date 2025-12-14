@@ -287,7 +287,11 @@ class BinanceUsdtGateway(BaseGateway):
 
                 super().on_trade(trade)
 
-            if traded == 0 and order.status == last_order.status:
+            if (
+                traded == 0
+                and order.status == last_order.status
+                and order.type == last_order.type
+            ):
                 return None
 
             self.orders[order.orderid] = order
@@ -1266,18 +1270,19 @@ class BinanceUsdtTradeWebsocketApi(WebsocketClient):
 
     async def on_packet(self, packet: dict) -> None:
         """receive data from ws"""
+
+        if not self.output_stream:
+            self.output_stream = await aiofiles.open("BinanceUsdtTradeWs_v2.json", "a")
+
+        await self.output_stream.write(
+            str(datetime.now()) + " " + json.dumps(packet) + "\n"
+        )
+
         if packet["e"] == "ACCOUNT_UPDATE":
             self.on_account(packet)
         elif packet["e"] == "ORDER_TRADE_UPDATE":
             self.on_order(packet)
-            if not self.output_stream:
-                self.output_stream = await aiofiles.open(
-                    "BinanceUsdtTradeWs_v2.json", "a"
-                )
 
-            await self.output_stream.write(
-                str(datetime.now()) + " " + json.dumps(packet) + "\n"
-            )
         elif packet["e"] == "ALGO_UPDATE":
             self.on_algo_order(packet)
 
@@ -1524,3 +1529,50 @@ def generate_datetime(timestamp: float) -> datetime:
     dt: datetime = LOCAL_TZ.localize(dt)
 
     return dt
+
+
+if __name__ == "__main__":
+    pass
+    packet = {
+        "e": "ORDER_TRADE_UPDATE",
+        "T": 1765549925941,
+        "E": 1765549925941,
+        "o": {
+            "s": "PYTHUSDT",
+            "c": "ALGO-x-cLbi5uMH251211163341000610",
+            "S": "BUY",
+            "o": "LIMIT",
+            "f": "GTC",
+            "q": "6036",
+            "p": "0.06676",
+            "ap": "0",
+            "sp": "0",
+            "x": "NEW",
+            "X": "NEW",
+            "i": 5113983068,
+            "l": "0",
+            "z": "0",
+            "L": "0",
+            "n": "0",
+            "N": "USDT",
+            "T": 1765549925941,
+            "t": 0,
+            "b": "402.96336",
+            "a": "0",
+            "m": false,
+            "R": false,
+            "wt": "CONTRACT_PRICE",
+            "ot": "LIMIT",
+            "ps": "BOTH",
+            "cp": false,
+            "rp": "0",
+            "pP": false,
+            "si": 3000000036279597,
+            "ss": -1,
+            "st": "ALGO_CONDITION",
+            "V": "EXPIRE_MAKER",
+            "pm": "NONE",
+            "gtd": 0,
+            "er": "0",
+        },
+    }
