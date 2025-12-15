@@ -621,19 +621,18 @@ class BinanceUsdtRestApi(RestClient):
     def cancel_order(self, req: CancelRequest) -> None:
         """cancel order"""
         data: dict = {"security": Security.SIGNED}
+        order: OrderData = self.gateway.get_order(req.orderid)
 
-        if req.orderid.startswith("ALGO-"):
+        if order.type == OrderType.STOP:
             params: dict = {
                 "symbol": req.symbol,
                 "clientalgoid": req.orderid,
             }
             path: str = "/fapi/v1/algoOrder"
-            order: OrderData = self.gateway.get_order(req.orderid)
 
-        else:
+        elif order.type == OrderType.LIMIT:
             params: dict = {"symbol": req.symbol, "origClientOrderId": req.orderid}
             path: str = "/fapi/v1/order"
-            order: OrderData = self.gateway.get_order(req.orderid)
 
         self.add_request(
             method="DELETE",
@@ -1272,7 +1271,7 @@ class BinanceUsdtTradeWebsocketApi(WebsocketClient):
         """receive data from ws"""
 
         if not self.output_stream:
-            self.output_stream = await aiofiles.open("BinanceUsdtTradeWs_v2.json", "a")
+            self.output_stream = await aiofiles.open("BinanceUsdtTradeWs_v3.json", "a")
 
         await self.output_stream.write(
             str(datetime.now()) + " " + json.dumps(packet) + "\n"
