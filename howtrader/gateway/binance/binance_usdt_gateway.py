@@ -472,10 +472,13 @@ class BinanceUsdtRestApi(RestClient):
 
     def query_orders(self) -> None:
         """query open orders"""
-        data: dict = {"security": Security.SIGNED}
+        signed: dict = {"security": Security.SIGNED}
 
+        orders = []
+
+        # query non-algo orders
         path: str = "/fapi/v1/openOrders"
-        resp: Response = self.request("GET", path=path, data=data)
+        resp: Response = self.request("GET", path=path, data=signed)
         if resp.status_code // 100 != 2:
             msg: str = (
                 f"query open orders failed, status code：{resp.status_code}，msg：{resp.text}"
@@ -484,35 +487,70 @@ class BinanceUsdtRestApi(RestClient):
         else:
             datas: dict = resp.json()
 
-        orders = []
-        for data in datas:
-            key: Tuple[str, str] = (data["type"], data["timeInForce"])
-            # order_type: OrderType = ORDERTYPE_BINANCES2VT.get(key, None)
-            # if not order_type:
-            #     continue
-            order_type: OrderType = ORDERTYPE_BINANCES2VT.get(key, OrderType.LIMIT)
+            for data in datas:
+                key: Tuple[str, str] = (data["type"], data["timeInForce"])
+                # order_type: OrderType = ORDERTYPE_BINANCES2VT.get(key, None)
+                # if not order_type:
+                #     continue
+                order_type: OrderType = ORDERTYPE_BINANCES2VT.get(key, OrderType.LIMIT)
 
-            traded = Decimal(data.get("executedQty", "0"))
-            traded_price = Decimal(data.get("avgPrice", "0"))
-            price = Decimal(data["price"])
-            if price <= 0 < traded_price:
-                price = traded_price
+                traded = Decimal(data.get("executedQty", "0"))
+                traded_price = Decimal(data.get("avgPrice", "0"))
+                price = Decimal(data["price"])
+                if price <= 0 < traded_price:
+                    price = traded_price
 
-            order: OrderData = OrderData(
-                orderid=data["clientOrderId"],
-                symbol=data["symbol"],
-                exchange=Exchange.BINANCE,
-                price=price,
-                volume=Decimal(data["origQty"]),
-                traded=traded,
-                traded_price=traded_price,
-                type=order_type,
-                direction=DIRECTION_BINANCES2VT[data["side"]],
-                status=STATUS_BINANCES2VT.get(data["status"], Status.NOTTRADED),
-                datetime=generate_datetime(data.get("time", time.time() * 1000)),
-                gateway_name=self.gateway_name,
+                order: OrderData = OrderData(
+                    orderid=data["clientOrderId"],
+                    symbol=data["symbol"],
+                    exchange=Exchange.BINANCE,
+                    price=price,
+                    volume=Decimal(data["origQty"]),
+                    traded=traded,
+                    traded_price=traded_price,
+                    type=order_type,
+                    direction=DIRECTION_BINANCES2VT[data["side"]],
+                    status=STATUS_BINANCES2VT.get(data["status"], Status.NOTTRADED),
+                    datetime=generate_datetime(data.get("time", time.time() * 1000)),
+                    gateway_name=self.gateway_name,
+                )
+                orders.append(order)
+
+        # query algo orders
+        path: str = "/fapi/v1/openAlgoOrders"
+        resp: Response = self.request("GET", path=path, data=signed)
+        if resp.status_code // 100 != 2:
+            msg: str = (
+                f"query open algo orders failed, status code：{resp.status_code}，msg：{resp.text}"
             )
-            orders.append(order)
+            self.gateway.write_log(msg)
+        else:
+            datas_algo: dict = resp.json()
+            for data in datas_algo:
+                key: Tuple[str, str] = (data["orderType"], data["timeInForce"])
+                # order_type: OrderType = ORDERTYPE_BINANCES2VT.get(key, None)
+                # if not order_type:
+                #     continue
+                order_type: OrderType = ORDERTYPE_BINANCES2VT.get(key, OrderType.LIMIT)
+
+                order: OrderData = OrderData(
+                    orderid=data["clientAlgoId"],
+                    symbol=data["symbol"],
+                    exchange=Exchange.BINANCE,
+                    price=Decimal(data["price"]),
+                    volume=Decimal(data["quantity"]),
+                    traded=Decimal("0"),
+                    traded_price=Decimal("0"),
+                    type=order_type,
+                    direction=DIRECTION_BINANCES2VT[data["side"]],
+                    status=STATUS_BINANCES2VT.get(data["algoStatus"], Status.NOTTRADED),
+                    datetime=generate_datetime(
+                        data.get("createTime", time.time() * 1000)
+                    ),
+                    gateway_name=self.gateway_name,
+                )
+                orders.append(order)
+
         return orders
 
     def query_contract(self) -> None:
