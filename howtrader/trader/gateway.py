@@ -5,6 +5,7 @@ from copy import copy
 from howtrader.event import Event, EventEngine
 from .event import (
     EVENT_TICK,
+    EVENT_TRADES,
     EVENT_ORDER,
     EVENT_TRADE,
     EVENT_POSITION,
@@ -20,6 +21,7 @@ from .object import (
     TickData,
     OrderData,
     TradeData,
+    TradesData,
     OrderbookData,
     OrderQueryRequest,
     OrderbookRequest,
@@ -111,6 +113,13 @@ class BaseGateway(ABC):
         """
         self.on_event(EVENT_TICK, tick)
         self.on_event(EVENT_TICK + tick.vt_symbol, tick)
+
+    def on_trades(self, trades: TradesData) -> None:
+        """
+        Market trades stream
+        """
+        self.on_event(EVENT_TRADES, trades)
+        self.on_event(EVENT_TRADES + trades.vt_symbol, trades)
 
     def on_trade(self, trade: TradeData) -> None:
         """

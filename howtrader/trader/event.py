@@ -5,6 +5,7 @@ Event type string used in the trading platform.
 from howtrader.event import EVENT_TIMER  # noqa
 
 EVENT_TICK = "eTick."
+EVENT_TRADES = "eTrades"
 EVENT_TRADE = "eTrade."
 EVENT_ORDER = "eOrder."
 EVENT_POSITION = "ePosition."

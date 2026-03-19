@@ -26,6 +26,7 @@ from howtrader.trader.object import (
     LogData,
     OrderbookData,
     TickData,
+    TradesData,
     BarData,
     OrderData,
     TradeData,
@@ -41,6 +42,7 @@ from howtrader.trader.event import (
     EVENT_POSITION,
     EVENT_ORIGINAL_KLINE,
     EVENT_ORDERBOOK,
+    EVENT_TRADES
 )
 
 EVENT_RPC_SIGNAL = "eRpcSignal"
@@ -140,6 +142,7 @@ class CtaEngine(BaseEngine):
     def register_event(self) -> None:
         """"""
         self.event_engine.register(EVENT_TICK, self.process_tick_event)
+        self.event_engine.register(EVENT_TRADES, self.process_trades_event)
         self.event_engine.register(EVENT_ORDER, self.process_order_event)
         self.event_engine.register(EVENT_TRADE, self.process_trade_event)
         self.event_engine.register(EVENT_POSITION, self.process_position_event)
@@ -177,6 +180,23 @@ class CtaEngine(BaseEngine):
         for strategy in strategies:
             if strategy.inited:
                 self.call_strategy_func(strategy, strategy.on_tick, tick)
+
+
+    def process_trades_event(self, event: Event) -> None:
+        """"""
+        trades: TradesData = event.data
+
+        strategies: list = self.symbol_strategy_map[trades.vt_symbol]
+        if not strategies:
+            return
+
+        #self.check_stop_order(tick)
+
+        for strategy in strategies:
+            if strategy.inited:
+                self.call_strategy_func(strategy, strategy.on_trades, trades)
+
+
 
     def process_order_event(self, event: Event) -> None:
         """"""

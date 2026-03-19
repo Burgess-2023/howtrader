@@ -87,6 +87,29 @@ class TickData(BaseData):
     ask_volume_5: float = 0
 
     localtime: datetime = None
+    transcation: datetime = None
+
+    def __post_init__(self) -> None:
+        """"""
+        self.vt_symbol: str = f"{self.symbol}.{self.exchange.value}"
+
+
+@dataclass
+class TradesData(BaseData):
+    """
+    Trade Data
+    """
+
+    symbol: str
+    exchange: Exchange
+    datetime: datetime
+
+    name: str = ""
+    price: float = 0
+    volume: float = 0
+    is_taker_sell: bool = None
+
+    localtime: datetime = None
 
     def __post_init__(self) -> None:
         """"""

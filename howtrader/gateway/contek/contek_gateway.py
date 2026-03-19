@@ -4,6 +4,7 @@ from howtrader.trader.object import (
     HistoryRequest,
     OrderData,
     TickData,
+    TradesData,
     BarData,
     Offset,
     ContractData,
@@ -62,6 +63,8 @@ import numpy as np
 from json import loads
 import json
 import os
+from copy import deepcopy
+
 
 DIRECTION_CONTEK2VT = {
     contek_core.OrderSide.buy: Direction.LONG,
@@ -795,7 +798,16 @@ class ContekWebsocketApi(contek_Client):
             datetime=datetime.now(LOCAL_TZ),
             gateway_name=self.gateway_name,
         )
-        self.ticks[req.symbol.lower()] = tick
+
+        trades: TradesData = TradesData(
+            symbol=req.symbol,
+            name=symbol_contract_map[req.symbol].name,
+            exchange=Exchange.CONTEK,
+            datetime=datetime.now(LOCAL_TZ),
+            gateway_name=self.gateway_name,
+        )
+
+        self.ticks[req.symbol.lower()] = [tick, trades]
 
         md_types = [
             contek_core.MdType.trade,
@@ -865,16 +877,15 @@ class ContekWebsocketApi(contek_Client):
             self.on_depth5(md_sub, msg)
 
     def on_trade(self, md_sub: contek_MdSub, msg: bytes):
-        tick: TickData = self.ticks[md_sub.symbol.lower()]
-        tick.volume = float(msg.md.qty)
-        tick.turnover = float(msg.md.qty * msg.md.price)
-        tick.last_price = float(msg.md.price)
-        tick.datetime = generate_datetime(msg.md.exch_ns)
-        tick.localtime = generate_datetime(msg.md.local_ns)
-        self.gateway.on_tick(tick)
+        trades: TradesData = deepcopy(self.ticks[md_sub.symbol.lower()][1])
+        trades.volume = float(msg.md.qty)
+        trades.price = float(msg.md.price)
+        trades.datetime = generate_datetime(msg.md.exch_ns)
+        trades.localtime = generate_datetime(msg.md.local_ns)
+        self.gateway.on_trades(trades)
 
     def on_depth5(self, md_sub: contek_MdSub, msg: bytes):
-        tick: TickData = self.ticks[md_sub.symbol.lower()]
+        tick: TickData = deepcopy(self.ticks[md_sub.symbol.lower()][0])
         tick.datetime = generate_datetime(msg.md.exch_ns)
         tick.localtime = generate_datetime(msg.md.local_ns)
 
