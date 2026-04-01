@@ -65,6 +65,16 @@ F_REST_HOST: str = "https://fapi.binance.com"
 F_WEBSOCKET_TRADE_HOST: str = "wss://fstream.binance.com/ws/"
 F_WEBSOCKET_DATA_HOST: str = "wss://fstream.binance.com/stream"
 
+# Websocket update
+F_WEBSOCKET_PUBLIC_HOST: str = (
+    "wss://fstream.binance.com/public"  # 高频公共数据（深度）
+)
+F_WEBSOCKET_MARKET_HOST: str = "wss://fstream.binance.com/market"  # 常规市场数据
+F_WEBSOCKET_PRIVATE_HOST: str = "wss://fstream.binance.com/private"  # 私有用户数据
+
+F_WEBSOCKET_WS_SUFFIX: str = "/ws"
+F_WEBSOCKET_STREAM_SUFFIX: str = "/stream"
+
 
 # Order status map
 STATUS_BINANCES2VT: Dict[str, Status] = {
@@ -632,6 +642,17 @@ class BinanceUsdtRestApi(RestClient):
             elif req.direction == Direction.SHORT:
                 params["triggerPrice"] = Decimal(str(order_params["stop_sell_price"]))
             path: str = "/fapi/v1/algoOrder"
+        elif req.type == OrderType.MAKER:
+            params["type"] = "LIMIT"
+            params["timeInForce"] = "GTX"
+            params["newClientOrderId"] = orderid
+            params["newOrderRespType"] = "RESULT"
+
+            # ✅ 推荐方式（自动挂队列）
+            params["priceMatch"] = "QUEUE"
+
+            # ❌ 不要传 price
+
         else:
             order_type, time_condition = ORDERTYPE_VT2BINANCES[req.type]
             params["type"] = order_type
@@ -668,7 +689,7 @@ class BinanceUsdtRestApi(RestClient):
             }
             path: str = "/fapi/v1/algoOrder"
 
-        elif order.type == OrderType.LIMIT:
+        elif order.type in [OrderType.LIMIT, OrderType.MAKER]:
             params: dict = {"symbol": req.symbol, "origClientOrderId": req.orderid}
             path: str = "/fapi/v1/order"
 
@@ -1049,7 +1070,15 @@ class BinanceUsdtRestApi(RestClient):
         self.user_stream_key = data["listenKey"]
         self.keep_alive_count = 0
 
-        url = F_WEBSOCKET_TRADE_HOST + self.user_stream_key
+        # url = F_WEBSOCKET_TRADE_HOST + self.user_stream_key
+        # self.trade_ws_api.connect(url, self.proxy_host, self.proxy_port)
+
+        # 新的私有流URL（按Binance公告的ws模式）
+        url = (
+            f"{F_WEBSOCKET_PRIVATE_HOST}{F_WEBSOCKET_WS_SUFFIX}?"
+            f"listenKey={self.user_stream_key}"
+            f"&events=ORDER_TRADE_UPDATE/ACCOUNT_UPDATE/ALGO_UPDATE"
+        )
         self.trade_ws_api.connect(url, self.proxy_host, self.proxy_port)
 
     def on_start_user_stream_failed(self, status_code: int, request: Request):
@@ -1440,7 +1469,11 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
         proxy_port: int,
     ) -> None:
         """connect market data ws"""
-        self.init(F_WEBSOCKET_DATA_HOST, proxy_host, proxy_port)
+        # self.init(F_WEBSOCKET_DATA_HOST, proxy_host, proxy_port)
+        # self.start()
+
+        ws_url = f"{F_WEBSOCKET_PUBLIC_HOST}{F_WEBSOCKET_STREAM_SUFFIX}"
+        self.init(ws_url, proxy_host, proxy_port)
         self.start()
 
     def on_connected(self) -> None:
@@ -1451,9 +1484,9 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
         if self.ticks:
             channels = []
             for symbol in self.ticks.keys():
-                channels.append(f"{symbol}@ticker")
+                # channels.append(f"{symbol}@ticker")
                 # channels.append(f"{symbol}@depth5")
-                channels.append(f"{symbol}@depth5@100ms")
+                channels.append(f"{symbol}@depth5@0ms")
             req: dict = {"method": "SUBSCRIBE", "params": channels, "id": self.reqid}
             self.send_packet(req)
 
@@ -1479,8 +1512,9 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
         self.ticks[req.symbol.lower()] = tick
 
         channels = [
-            f"{req.symbol.lower()}@ticker",
-            f"{req.symbol.lower()}@depth5@100ms",
+            # f"{req.symbol.lower()}@ticker",
+            f"{req.symbol.lower()}@depth5@0ms",
+            # f"{req.symbol.lower()}@trade",
         ]
 
         req: dict = {"method": "SUBSCRIBE", "params": channels, "id": self.reqid}
@@ -1498,7 +1532,7 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
         self.reqid += 1
         channels = [
             f"{req.symbol.lower()}@ticker",
-            f"{req.symbol.lower()}@depth5@100ms",
+            f"{req.symbol.lower()}@depth5@0ms",
         ]
 
         self.ticks.pop(req.symbol.lower())
@@ -1527,6 +1561,7 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
             tick.low_price = float(data["l"])
             tick.last_price = float(data["c"])
             tick.datetime = generate_datetime(float(data["E"]))
+            # tick.transaction = generate_datetime(float(data["T"]))
 
         elif channel == "depth5":
             bids: list = data["b"]
@@ -1543,6 +1578,7 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
 
             # custom update
             tick.datetime = generate_datetime(float(data["E"]))
+            tick.transaction = generate_datetime(float(data["T"]))
             last_price = Decimal(
                 (
                     tick.ask_price_1 * tick.bid_volume_1

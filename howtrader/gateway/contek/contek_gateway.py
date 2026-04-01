@@ -409,11 +409,15 @@ class ContekRestApi(contek_RemoteGateway):
                 self.gateway.on_order(order)
 
                 # remove the order from the map if the order is filled or cancelled or rejected
-                if STATUS_CONTEK2VT[order_update.status] in [
-                    Status.ALLTRADED,
-                    Status.CANCELLED,
-                    Status.REJECTED,
-                ]:
+                if (
+                    STATUS_CONTEK2VT[order_update.status]
+                    in [
+                        Status.ALLTRADED,
+                        Status.CANCELLED,
+                        Status.REJECTED,
+                    ]
+                    and order_update.id in self.orders_offset_map
+                ):
                     self.orders_offset_map.pop(order_update.id)
 
             except Exception:
@@ -810,7 +814,7 @@ class ContekWebsocketApi(contek_Client):
         self.ticks[req.symbol.lower()] = [tick, trades]
 
         md_types = [
-            contek_core.MdType.trade,
+            # contek_core.MdType.trade,
             # MdType.quote,
             contek_core.MdType.depth5,
             # MdType.depth10,
@@ -845,10 +849,10 @@ class ContekWebsocketApi(contek_Client):
         self.ticks.pop(req.symbol.lower())
 
         md_types = [
-            contek_core.MdType.trade,
+            # contek_core.MdType.trade,
             # MdType.quote,
             # contek_core.MdType.depth5,
-            # MdType.depth10,
+            contek_core.MdType.depth10,
             # MdType.depth20,
             # MdType.orderbook,
         ]

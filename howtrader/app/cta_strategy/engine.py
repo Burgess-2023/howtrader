@@ -42,7 +42,7 @@ from howtrader.trader.event import (
     EVENT_POSITION,
     EVENT_ORIGINAL_KLINE,
     EVENT_ORDERBOOK,
-    EVENT_TRADES
+    EVENT_TRADES,
 )
 
 EVENT_RPC_SIGNAL = "eRpcSignal"
@@ -181,7 +181,6 @@ class CtaEngine(BaseEngine):
             if strategy.inited:
                 self.call_strategy_func(strategy, strategy.on_tick, tick)
 
-
     def process_trades_event(self, event: Event) -> None:
         """"""
         trades: TradesData = event.data
@@ -190,13 +189,11 @@ class CtaEngine(BaseEngine):
         if not strategies:
             return
 
-        #self.check_stop_order(tick)
+        # self.check_stop_order(tick)
 
         for strategy in strategies:
             if strategy.inited:
                 self.call_strategy_func(strategy, strategy.on_trades, trades)
-
-
 
     def process_order_event(self, event: Event) -> None:
         """"""
@@ -411,7 +408,7 @@ class CtaEngine(BaseEngine):
             self.orderid_strategy_map[vt_orderid] = strategy
             self.strategy_orderid_map[strategy.strategy_name].add(vt_orderid)
 
-        return vt_orderids
+        return vt_orderids[0]
 
     def send_limit_order(
         self,
