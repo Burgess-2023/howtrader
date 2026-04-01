@@ -1414,7 +1414,7 @@ class BinanceUsdtTradeWebsocketApi(WebsocketClient):
             traded=Decimal(ord_data["z"]),
             traded_price=Decimal(ord_data.get("L", "0")),
             status=STATUS_BINANCES2VT.get(ord_data["X"], Status.NOTTRADED),
-            datetime=generate_datetime(packet["E"]),
+            datetime=generate_datetime(packet["T"]),
             gateway_name=self.gateway_name,
         )
 
@@ -1442,7 +1442,7 @@ class BinanceUsdtTradeWebsocketApi(WebsocketClient):
             traded=Decimal(ord_data["aq"]) if "aq" in ord_data else Decimal("0"),
             traded_price=Decimal("0"),
             status=STATUS_BINANCES2VT.get(ord_data["X"], Status.NOTTRADED),
-            datetime=generate_datetime(packet["E"]),
+            datetime=generate_datetime(packet["T"]),
             gateway_name=self.gateway_name,
         )
 
@@ -1560,7 +1560,7 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
             tick.high_price = float(data["h"])
             tick.low_price = float(data["l"])
             tick.last_price = float(data["c"])
-            tick.datetime = generate_datetime(float(data["E"]))
+            tick.datetime = generate_datetime(float(data["T"]))
             # tick.transaction = generate_datetime(float(data["T"]))
 
         elif channel == "depth5":
@@ -1577,8 +1577,8 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
                 tick.__setattr__("ask_volume_" + str(n + 1), float(volume))
 
             # custom update
-            tick.datetime = generate_datetime(float(data["E"]))
-            tick.transaction = generate_datetime(float(data["T"]))
+            tick.datetime = generate_datetime(float(data["T"]))
+            # tick.transaction = generate_datetime(float(data["T"]))
             last_price = Decimal(
                 (
                     tick.ask_price_1 * tick.bid_volume_1
@@ -1599,6 +1599,6 @@ class BinanceUsdtDataWebsocketApi(WebsocketClient):
 def generate_datetime(timestamp: float) -> datetime:
     """generate time"""
     dt: datetime = datetime.fromtimestamp(timestamp / 1000)
-    dt: datetime = LOCAL_TZ.localize(dt)
+    # dt: datetime = LOCAL_TZ.localize(dt)
 
     return dt
